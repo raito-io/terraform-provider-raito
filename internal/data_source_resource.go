@@ -164,6 +164,7 @@ func (d *DataSourceResource) Create(ctx context.Context, request resource.Create
 	}
 
 	planExpectedIss := set.Set[string]{}
+
 	for _, identityStoreId := range data.IdentityStores.Elements() {
 		idValue := identityStoreId.(types.String)
 		planExpectedIss.Add(idValue.ValueString())
@@ -242,9 +243,9 @@ func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequ
 	var nativeIs *string
 	isIds := make([]attr.Value, 0, len(identityStores))
 
-	for _, identityStore := range identityStores {
+	for i, identityStore := range identityStores {
 		if identityStore.Native {
-			nativeIs = &identityStore.Id
+			nativeIs = &identityStores[i].Id
 		} else if !identityStore.Master {
 			isIds = append(isIds, types.StringValue(identityStore.Id))
 		}
@@ -298,6 +299,7 @@ func (d *DataSourceResource) Update(ctx context.Context, request resource.Update
 	}
 
 	planExpectedIss := set.Set[string]{}
+
 	for _, identityStoreId := range data.IdentityStores.Elements() {
 		idValue := identityStoreId.(types.String)
 		planExpectedIss.Add(idValue.ValueString())

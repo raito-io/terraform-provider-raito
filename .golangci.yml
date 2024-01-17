@@ -1,0 +1,138 @@
+linters-settings:
+  #check:
+  #check-type-assertions: true
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+      - importShadow # not important for now
+      - unnamedResult # not important
+      - hugeParam #to be checked
+      - commentFormatting
+      - paramTypeCombine
+
+  govet:
+    check-shadowing: true
+
+  revive:
+    rules:
+      - name: exported
+        disabled: true
+
+  wsl:
+    allow-assign-and-anything: true
+    allow-cuddle-declarations: true # should be false
+
+  nolintlint:
+    allow-no-explanation: [ ]
+    require-explanation: false
+    require-specific: false
+
+  gosec:
+    excludes:
+      - G404 # To be checked: Insecure random number source (rand)
+
+  stylecheck:
+    checks: [ "all", "-ST1003"] # ST1003: No underscores in package names should be fixed and removed?
+
+  predeclared:
+    ignore: "error"
+
+  gomnd:
+    ignored-functions:
+      - 'math.*' # Magic number generation, should be fixed and removed?
+
+  cyclop:
+    max-complexity: 20
+    skip-tests: true
+    package-average: 0.0
+
+  errorlint:
+    errorf: true
+    errorf-multi: true
+    asserts: true
+    comparison: true
+
+  exhaustive:
+    default-signifies-exhaustive: true
+
+  wrapcheck:
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
+      - go-multierror.Append(
+
+linters:
+  disable-all: true
+  enable:
+    - asasalint
+    - bodyclose
+    # - cyclop #To be enabled in the future
+    #- depguard #We should create a correct config to enabe depguard
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - errcheck
+    - errorlint
+    - exportloopref
+    - exhaustive
+    - forbidigo
+    - goconst
+    - gocritic
+    - gofmt
+    - goimports
+    #- gomnd # Magic numbers should be fixed and enable gomnd,
+    - gocyclo
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - nolintlint
+    - nakedret
+    - prealloc
+    - predeclared
+    - revive
+    - staticcheck
+    - stylecheck
+    - thelper
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+    - wrapcheck
+    - wsl
+
+run:
+  issues-exit-code: 1
+  tests: false
+
+output:
+  path-prefix: ""
+  sort-results: true
+  format: tab
+  print-issued-lines: false
+  print-linter-name: true
+  uniq-by-line: false

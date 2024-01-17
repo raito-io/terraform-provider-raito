@@ -2,14 +2,18 @@ package internal
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	raitoType "github.com/raito-io/sdk/types"
 )
 
 func TestAccDataSourceResource(t *testing.T) {
+	testId := gonanoid.Must(8)
+
 	t.Run("basic", func(t *testing.T) {
 		resource.Test(t, resource.TestCase{
 			IsUnitTest: false,
@@ -17,18 +21,18 @@ func TestAccDataSourceResource(t *testing.T) {
 				AccProviderPreCheck(t)
 			},
 			TerraformVersionChecks: []tfversion.TerraformVersionCheck{
-				tfversion.SkipBelow(tfversion.Version1_1_0),
+				tfversion.SkipBelow(tfversion.Version1_0_0),
 			},
 			Steps: []resource.TestStep{
 				{
-					Config: providerConfig + `
+					Config: providerConfig + fmt.Sprintf(`
 resource "raito_datasource" "test" {
-	name        = "tfTestDataSource"
+	name        = "tfTestDataSource-%s"
 	description = "test description"
 }
-`,
+`, testId),
 					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfTestDataSource"),
+						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfTestDataSource-"+testId),
 						resource.TestCheckResourceAttr("raito_datasource.test", "description", "test description"),
 						resource.TestCheckResourceAttr("raito_datasource.test", "sync_method", string(raitoType.DataSourceSyncMethodOnPrem)),
 						resource.TestCheckResourceAttr("raito_datasource.test", "identity_stores.#", "0"),
@@ -48,15 +52,15 @@ resource "raito_datasource" "test" {
 					ImportStateVerify: true,
 				},
 				{
-					Config: providerConfig + `
+					Config: providerConfig + fmt.Sprintf(`
 resource "raito_datasource" "test" {
-	name        = "tfTestDataSourceUpdateName"
+	name        = "tfTestDataSourceUpdateName-%s"
 	description = "test update description"
 	sync_method = "CLOUD_MANUAL_TRIGGER"
 }
-`,
+`, testId),
 					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfTestDataSourceUpdateName"),
+						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfTestDataSourceUpdateName-"+testId),
 						resource.TestCheckResourceAttr("raito_datasource.test", "description", "test update description"),
 						resource.TestCheckResourceAttr("raito_datasource.test", "sync_method", string(raitoType.DataSourceSyncMethodCloudManualTrigger)),
 					),
@@ -74,29 +78,29 @@ resource "raito_datasource" "test" {
 				AccProviderPreCheck(t)
 			},
 			TerraformVersionChecks: []tfversion.TerraformVersionCheck{
-				tfversion.SkipBelow(tfversion.Version1_1_0),
+				tfversion.SkipBelow(tfversion.Version1_0_0),
 			},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			Steps: []resource.TestStep{
 				{
-					Config: providerConfig + `
+					Config: providerConfig + fmt.Sprintf(`
 resource "raito_identitystore" "tfIs1" {
-	name = "tfIs1DataSourceTest"
+	name = "tfIs1DataSourceTest-%[1]s"
 }
 
 resource "raito_identitystore" "tfIs2" {
-    name = "tfIs2DataSourceTest"
+    name = "tfIs2DataSourceTest-%[1]s"
 }
 
 resource "raito_datasource" "test" {
-	name = "tfDs1"
+	name = "tfDs1-%[1]s"
 	identity_stores = [
 		raito_identitystore.tfIs1.id,
 	]
 }
-`,
+`, testId),
 					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfDs1"),
+						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfDs1-"+testId),
 						resource.TestCheckResourceAttr("raito_datasource.test", "identity_stores.#", "1"),
 						resource.TestCheckResourceAttrPair("raito_identitystore.tfIs1", "id", "raito_datasource.test", "identity_stores.0"),
 					),
@@ -107,24 +111,24 @@ resource "raito_datasource" "test" {
 					ImportStateVerify: true,
 				},
 				{
-					Config: providerConfig + `
+					Config: providerConfig + fmt.Sprintf(`
 resource "raito_identitystore" "tfIs1" {
-	name = "tfIs1DataSourceTest"
+	name = "tfIs1DataSourceTest-%[1]s"
 }
 
 resource "raito_identitystore" "tfIs2" {
-    name = "tfIs2DataSourceTest"
+    name = "tfIs2DataSourceTest-%[1]s"
 }
 
 resource "raito_datasource" "test" {
-	name = "tfDs1"
+	name = "tfDs1-%[1]s"
 	identity_stores = [
 		raito_identitystore.tfIs2.id,
 	]
 }
-`,
+`, testId),
 					Check: resource.ComposeAggregateTestCheckFunc(
-						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfDs1"),
+						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfDs1-"+testId),
 						resource.TestCheckResourceAttr("raito_datasource.test", "identity_stores.#", "1"),
 						resource.TestCheckResourceAttrPair("raito_identitystore.tfIs2", "id", "raito_datasource.test", "identity_stores.0"),
 					),

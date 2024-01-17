@@ -76,5 +76,5 @@ jobs:
           TF_ACC: "1"
           TF_VAR_raito_user: ${{ secrets.RAITO_USER }}
           TF_VAR_raito_secret: ${{ secrets.RAITO_SECRET }}
-        run: go test -v -cover ./internal/provider/
+        run: go test -v -cover ./internal/
         timeout-minutes: 10

@@ -85,7 +85,7 @@ func (p *RaitoCloudProvider) Configure(ctx context.Context, req provider.Configu
 		options = append(options, sdk.WithUrlOverride(data.UrlOverride.ValueString()))
 	}
 
-	client := RaitoClient(&RaitoClientImpl{client: sdk.NewClient(ctx, data.Domain.ValueString(), data.User.ValueString(), data.Secret.ValueString(), options...)})
+	client := sdk.NewClient(ctx, data.Domain.ValueString(), data.User.ValueString(), data.Secret.ValueString(), options...)
 
 	resp.DataSourceData = client
 	resp.ResourceData = client
@@ -95,6 +95,7 @@ func (p *RaitoCloudProvider) Resources(ctx context.Context) []func() resource.Re
 	return []func() resource.Resource{
 		NewDataSourceResource,
 		NewIdentityStoreResource,
+		NewGrantResource,
 	}
 }
 

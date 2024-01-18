@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/golang-set/set"
+	"github.com/raito-io/sdk"
 	raitoType "github.com/raito-io/sdk/types"
 
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
@@ -44,7 +45,7 @@ func (m *DataSourceResourceModel) ToDataSourceInput() raitoType.DataSourceInput 
 }
 
 type DataSourceResource struct {
-	client DataSourceClient
+	client *sdk.RaitoClient
 }
 
 func NewDataSourceResource() resource.Resource {
@@ -145,7 +146,7 @@ func (d *DataSourceResource) Create(ctx context.Context, request resource.Create
 	}
 
 	// Create data source
-	dataSourceResult, err := d.client.CreateDataSource(ctx, data.ToDataSourceInput())
+	dataSourceResult, err := d.client.DataSource().CreateDataSource(ctx, data.ToDataSourceInput())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to create data source", err.Error())
 
@@ -156,7 +157,7 @@ func (d *DataSourceResource) Create(ctx context.Context, request resource.Create
 	response.State.Set(ctx, data) //Ensure to store id first
 
 	// Load current identity stores
-	identityStores, err := d.client.ListIdentityStores(ctx, dataSourceResult.Id)
+	identityStores, err := d.client.DataSource().ListIdentityStores(ctx, dataSourceResult.Id)
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list identity stores", err.Error())
 
@@ -186,7 +187,7 @@ func (d *DataSourceResource) Create(ctx context.Context, request resource.Create
 			continue
 		}
 
-		err = d.client.AddIdentityStoreToDataSource(ctx, dataSourceResult.Id, is)
+		err = d.client.DataSource().AddIdentityStoreToDataSource(ctx, dataSourceResult.Id, is)
 		if err != nil {
 			response.Diagnostics.AddError("Failed to remove identity store from data source", err.Error())
 
@@ -200,7 +201,7 @@ func (d *DataSourceResource) Create(ctx context.Context, request resource.Create
 			continue
 		}
 
-		err = d.client.RemoveIdentityStoreFromDataSource(ctx, dataSourceResult.Id, is)
+		err = d.client.DataSource().RemoveIdentityStoreFromDataSource(ctx, dataSourceResult.Id, is)
 		if err != nil {
 			response.Diagnostics.AddError("Failed to add identity store to data source", err.Error())
 
@@ -221,7 +222,7 @@ func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequ
 		return
 	}
 
-	ds, err := d.client.GetDataSource(ctx, stateData.Id.ValueString())
+	ds, err := d.client.DataSource().GetDataSource(ctx, stateData.Id.ValueString())
 	if err != nil {
 		var notFoundErr *raitoType.ErrNotFound
 		if !errors.As(err, &notFoundErr) {
@@ -233,7 +234,7 @@ func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequ
 		return
 	}
 
-	identityStores, err := d.client.ListIdentityStores(ctx, stateData.Id.ValueString())
+	identityStores, err := d.client.DataSource().ListIdentityStores(ctx, stateData.Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list identity stores", err.Error())
 
@@ -283,7 +284,7 @@ func (d *DataSourceResource) Update(ctx context.Context, request resource.Update
 	}
 
 	// Update data source
-	_, err := d.client.UpdateDataSource(ctx, data.Id.ValueString(), data.ToDataSourceInput())
+	_, err := d.client.DataSource().UpdateDataSource(ctx, data.Id.ValueString(), data.ToDataSourceInput())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to update data source", err.Error())
 
@@ -291,7 +292,7 @@ func (d *DataSourceResource) Update(ctx context.Context, request resource.Update
 	}
 
 	// Load current identity stores
-	identityStores, err := d.client.ListIdentityStores(ctx, data.Id.ValueString())
+	identityStores, err := d.client.DataSource().ListIdentityStores(ctx, data.Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list identity stores", err.Error())
 
@@ -319,7 +320,7 @@ func (d *DataSourceResource) Update(ctx context.Context, request resource.Update
 			continue
 		}
 
-		err = d.client.AddIdentityStoreToDataSource(ctx, data.Id.ValueString(), is)
+		err = d.client.DataSource().AddIdentityStoreToDataSource(ctx, data.Id.ValueString(), is)
 		if err != nil {
 			response.Diagnostics.AddError("Failed to remove identity store from data source", err.Error())
 
@@ -333,7 +334,7 @@ func (d *DataSourceResource) Update(ctx context.Context, request resource.Update
 			continue
 		}
 
-		err = d.client.RemoveIdentityStoreFromDataSource(ctx, data.Id.ValueString(), is)
+		err = d.client.DataSource().RemoveIdentityStoreFromDataSource(ctx, data.Id.ValueString(), is)
 		if err != nil {
 			response.Diagnostics.AddError("Failed to add identity store to data source", err.Error())
 
@@ -354,7 +355,7 @@ func (d *DataSourceResource) Delete(ctx context.Context, request resource.Delete
 		return
 	}
 
-	err := d.client.DeleteDataSource(ctx, data.Id.ValueString())
+	err := d.client.DataSource().DeleteDataSource(ctx, data.Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete data source", err.Error())
 
@@ -370,7 +371,7 @@ func (d *DataSourceResource) Configure(_ context.Context, req resource.Configure
 		return
 	}
 
-	client, ok := req.ProviderData.(RaitoClient)
+	client, ok := req.ProviderData.(*sdk.RaitoClient)
 
 	if !ok {
 		resp.Diagnostics.AddError(
@@ -390,7 +391,7 @@ func (d *DataSourceResource) Configure(_ context.Context, req resource.Configure
 		return
 	}
 
-	d.client = client.DataSource()
+	d.client = client
 }
 
 func (d *DataSourceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

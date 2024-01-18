@@ -2,12 +2,15 @@ module github.com/raito-io/terraform-provider-raito
 
 go 1.21
 
+replace github.com/raito-io/sdk => ../raito-sdk
+
 require (
 	github.com/hashicorp/terraform-plugin-docs v0.16.0
 	github.com/hashicorp/terraform-plugin-framework v1.5.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.12.0
 	github.com/hashicorp/terraform-plugin-go v0.20.0
 	github.com/hashicorp/terraform-plugin-testing v1.6.0
+	github.com/matoous/go-nanoid/v2 v2.0.0
 	github.com/raito-io/golang-set v0.0.4
 	github.com/raito-io/sdk v0.0.1
 )
@@ -67,7 +70,6 @@ require (
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/matoous/go-nanoid/v2 v2.0.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mitchellh/cli v1.1.5 // indirect

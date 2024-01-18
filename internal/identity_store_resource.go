@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/raito-io/sdk"
 	raitoType "github.com/raito-io/sdk/types"
 )
 
@@ -37,7 +38,7 @@ func (m *IdentityStoreResourceModel) ToIdentityStoreInput() raitoType.IdentitySt
 }
 
 type IdentityStoreResource struct {
-	client IdentityStoreClient
+	client *sdk.RaitoClient
 }
 
 func NewIdentityStoreResource() resource.Resource {
@@ -115,7 +116,7 @@ func (i *IdentityStoreResource) Create(ctx context.Context, request resource.Cre
 	}
 
 	// Create identity store
-	isResult, err := i.client.CreateIdentityStore(ctx, data.ToIdentityStoreInput())
+	isResult, err := i.client.IdentityStore().CreateIdentityStore(ctx, data.ToIdentityStoreInput())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to create identity store", err.Error())
 
@@ -135,7 +136,7 @@ func (i *IdentityStoreResource) Read(ctx context.Context, request resource.ReadR
 		return
 	}
 
-	is, err := i.client.GetIdentityStore(ctx, stateData.Id.ValueString())
+	is, err := i.client.IdentityStore().GetIdentityStore(ctx, stateData.Id.ValueString())
 	if err != nil {
 		notFoundErr := &raitoType.ErrNotFound{}
 		if errors.As(err, &notFoundErr) {
@@ -166,7 +167,7 @@ func (i *IdentityStoreResource) Update(ctx context.Context, request resource.Upd
 		return
 	}
 
-	_, err := i.client.UpdateIdentityStore(ctx, data.Id.ValueString(), data.ToIdentityStoreInput())
+	_, err := i.client.IdentityStore().UpdateIdentityStore(ctx, data.Id.ValueString(), data.ToIdentityStoreInput())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to update identity store", err.Error())
 
@@ -185,7 +186,7 @@ func (i *IdentityStoreResource) Delete(ctx context.Context, request resource.Del
 		return
 	}
 
-	err := i.client.DeleteIdentityStore(ctx, data.Id.ValueString())
+	err := i.client.IdentityStore().DeleteIdentityStore(ctx, data.Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete identity store", err.Error())
 	}
@@ -199,7 +200,7 @@ func (i *IdentityStoreResource) Configure(_ context.Context, req resource.Config
 		return
 	}
 
-	client, ok := req.ProviderData.(RaitoClient)
+	client, ok := req.ProviderData.(*sdk.RaitoClient)
 
 	if !ok {
 		resp.Diagnostics.AddError(
@@ -219,7 +220,7 @@ func (i *IdentityStoreResource) Configure(_ context.Context, req resource.Config
 		return
 	}
 
-	i.client = client.IdentityStore()
+	i.client = client
 }
 
 func (i *IdentityStoreResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

@@ -391,8 +391,8 @@ func (g GrantResource) Read(ctx context.Context, request resource.ReadRequest, r
 				},
 			}, stateWhatItems)
 
-			response.Diagnostics.Append(whatDiag...)
-			if response.Diagnostics.HasError() {
+			diagnostics.Append(whatDiag...)
+			if diagnostics.HasError() {
 				return diagnostics
 			}
 

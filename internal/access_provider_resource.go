@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -256,23 +255,25 @@ func (a *AccessProviderResource[T]) read(ctx context.Context, data T, response *
 	if !apModel.Who.IsNull() {
 		definedPromises := set.Set[string]{}
 
+		// Search al promises defined in the terraform state
 		for _, whoItem := range apModel.Who.Elements() {
 			whoItemObject := whoItem.(types.Object)
 			attributes := whoItemObject.Attributes()
 
 			if !attributes["promise_duration"].IsNull() {
 				if !attributes["user"].IsNull() {
-					definedPromises.Add("user:" + attributes["user"].(types.String).ValueString())
+					definedPromises.Add(_userPrefix(attributes["user"].(types.String).ValueString()))
 				} else if !attributes["group"].IsNull() {
-					definedPromises.Add("group:" + attributes["group"].(types.String).ValueString())
+					definedPromises.Add(_groupPrefix(attributes["group"].(types.String).ValueString()))
 				} else if !attributes["access_control"].IsNull() {
-					definedPromises.Add("access_control:" + attributes["access_control"].(types.String).ValueString())
+					definedPromises.Add(_accessControlPrefix(attributes["access_control"].(types.String).ValueString()))
 				}
 			}
 		}
 
 		stateWhoItems := make([]attr.Value, 0)
 
+		// Get all who items. Ignore implemented promises.
 		whoItems := a.client.AccessProvider().GetAccessProviderWhoList(ctx, apModel.Id.ValueString())
 		for whoItem := range whoItems {
 			if whoItem.HasError() {
@@ -282,7 +283,6 @@ func (a *AccessProviderResource[T]) read(ctx context.Context, data T, response *
 			}
 
 			var user, group, whoAp *string
-			var promiseDuration *int64
 
 			item := whoItem.GetItem()
 			switch benificiaryItem := item.Item.(type) {
@@ -299,12 +299,10 @@ func (a *AccessProviderResource[T]) read(ctx context.Context, data T, response *
 			}
 
 			if item.Type == raitoType.AccessWhoItemTypeWhogrant {
-				if (user != nil && definedPromises.Contains("user:"+*user)) || (group != nil && definedPromises.Contains("group:"+*group)) || (whoAp != nil && definedPromises.Contains("access_control:"+*whoAp)) {
+				if (user != nil && definedPromises.Contains(_userPrefix(*user))) || (group != nil && definedPromises.Contains(_groupPrefix(*group))) || (whoAp != nil && definedPromises.Contains(_accessControlPrefix(*whoAp))) {
 					continue
 				}
-			} else if item.PromiseDuration != nil {
-				promiseDuration = utils.Ptr(int64(item.PromiseDuration.Seconds()))
-			} else {
+			} else if item.PromiseDuration == nil {
 				response.Diagnostics.AddError("Invalid who item detected.", "Invalid who item. Promise duration not set on promise who item")
 			}
 
@@ -318,7 +316,7 @@ func (a *AccessProviderResource[T]) read(ctx context.Context, data T, response *
 					"user":             types.StringPointerValue(user),
 					"group":            types.StringPointerValue(group),
 					"access_control":   types.StringPointerValue(whoAp),
-					"promise_duration": types.Int64PointerValue(promiseDuration),
+					"promise_duration": types.Int64PointerValue(item.PromiseDuration),
 				}))
 		}
 
@@ -364,6 +362,66 @@ func (a *AccessProviderResource[T]) update(ctx context.Context, id string, data 
 
 	if response.Diagnostics.HasError() {
 		return
+	}
+
+	// Check for implemented promises
+	definedPromises := set.Set[string]{}
+
+	for _, whoItem := range input.WhoItems {
+		if whoItem.Type != nil && *whoItem.Type == raitoType.AccessWhoItemTypeWhopromise {
+			if whoItem.User != nil {
+				definedPromises.Add(_userPrefix(*whoItem.User))
+			} else if whoItem.Group != nil {
+				definedPromises.Add(_groupPrefix(*whoItem.Group))
+			} else if whoItem.AccessProvider != nil {
+				definedPromises.Add(_accessControlPrefix(*whoItem.AccessProvider))
+			}
+		}
+	}
+
+	whoItemChannel := a.client.AccessProvider().GetAccessProviderWhoList(ctx, id)
+	for whoItem := range whoItemChannel {
+		if whoItem.HasError() {
+			response.Diagnostics.AddError("Failed to read who item from access provider", whoItem.GetError().Error())
+
+			return
+		}
+
+		item := whoItem.GetItem()
+
+		if item.Type == raitoType.AccessWhoItemTypeWhogrant {
+			var key string
+			var user, group, whoAp *string
+
+			switch beneficiaryItem := item.Item.(type) {
+			case *raitoType.AccessProviderWhoListItemItemUser:
+				if beneficiaryItem.Email == nil {
+					continue
+				}
+
+				key = _userPrefix(*beneficiaryItem.Email)
+				user = &beneficiaryItem.Id
+			case *raitoType.AccessProviderWhoListItemItemGroup:
+				key = _groupPrefix(beneficiaryItem.Id)
+				group = &beneficiaryItem.Id
+			case *raitoType.AccessProviderWhoListItemItemAccessProvider:
+				key = _accessControlPrefix(beneficiaryItem.Id)
+				whoAp = &beneficiaryItem.Id
+			default:
+				continue
+			}
+
+			if definedPromises.Contains(key) {
+				input.WhoItems = append(input.WhoItems, raitoType.WhoItemInput{
+					Type:           utils.Ptr(raitoType.AccessWhoItemTypeWhogrant),
+					User:           user,
+					Group:          group,
+					AccessProvider: whoAp,
+					ExpiresAfter:   item.ExpiresAfter,
+					ExpiresAt:      item.ExpiresAt,
+				})
+			}
+		}
 	}
 
 	// Update access provider
@@ -506,9 +564,8 @@ func (a *AccessProviderResourceModel) ToAccessProviderInput(ctx context.Context,
 
 			if promiseDurationAttribute, found := whoAttributes["promise_duration"]; found && !promiseDurationAttribute.IsNull() {
 				promiseDurationInt := promiseDurationAttribute.(types.Int64)
-				d := time.Second * time.Duration(promiseDurationInt.ValueInt64())
+				raitoWhoItem.PromiseDuration = promiseDurationInt.ValueInt64Pointer()
 				raitoWhoItem.Type = utils.Ptr(raitoType.AccessWhoItemTypeWhopromise)
-				raitoWhoItem.PromiseDuration = &d
 			}
 
 			if userAttribute, found := whoAttributes["user"]; found && !userAttribute.IsNull() {
@@ -546,4 +603,16 @@ func (a *AccessProviderResourceModel) FromAccessProvider(ap *raitoType.AccessPro
 	a.State = types.StringValue(ap.State.String())
 
 	return diagnostics
+}
+
+func _userPrefix(u string) string {
+	return "user:" + u
+}
+
+func _groupPrefix(g string) string {
+	return "group:" + g
+}
+
+func _accessControlPrefix(a string) string {
+	return "access_control:" + a
 }

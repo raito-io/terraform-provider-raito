@@ -91,18 +91,17 @@ func (p *RaitoCloudProvider) Configure(ctx context.Context, req provider.Configu
 	resp.ResourceData = client
 }
 
-func (p *RaitoCloudProvider) Resources(ctx context.Context) []func() resource.Resource {
+func (p *RaitoCloudProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewDataSourceResource,
 		NewIdentityStoreResource,
 		NewGrantResource,
+		NewPurposeResource,
 	}
 }
 
-func (p *RaitoCloudProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
-		//NewExampleDataSource,
-	}
+func (p *RaitoCloudProvider) DataSources(_ context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{}
 }
 
 func New(version string) func() provider.Provider {

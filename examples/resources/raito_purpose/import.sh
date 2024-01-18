@@ -1,0 +1,1 @@
+terraform import raito_purpose.example PurposeId

@@ -161,9 +161,9 @@ func (d *DataSourceDataSource) Read(ctx context.Context, request datasource.Read
 
 			response.State.Set(ctx, data)
 		}
-
 	}
 }
+
 func (d *DataSourceDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return

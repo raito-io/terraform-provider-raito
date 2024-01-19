@@ -112,14 +112,14 @@ func (m *MaskResourceModel) FromAccessProvider(ctx context.Context, client *sdk.
 	m.DataSource = types.StringValue(input.DataSources[0].Id)
 
 	if input.Type == nil {
-		maskType, err := client.DataSource().GetDefaultMask(ctx, input.DataSources[0].Id)
+		maskType, err := client.DataSource().GetMaskingMetadata(ctx, input.DataSources[0].Id)
 		if err != nil {
 			diagnostics.AddError("Failed to get default mask type", err.Error())
 
 			return diagnostics
 		}
 
-		m.Type = types.StringPointerValue(maskType)
+		m.Type = types.StringPointerValue(maskType.DefaultMaskExternalName)
 	} else {
 		m.Type = types.StringPointerValue(input.Type)
 	}

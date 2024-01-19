@@ -3,7 +3,7 @@ resource "raito_datasource" "example" {
   description = "A description for the data source"
   sync_method = "ON_PREM"
   parent      = "ParentId"
-  IdentityStores = [
+  identity_stores = [
     "linked_identity_store_id"
   ]
 }

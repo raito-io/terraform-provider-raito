@@ -18,7 +18,6 @@ import (
 )
 
 var _ resource.Resource = (*PurposeResource)(nil)
-var _ AccessProviderModel = (*PurposeResourceModel)(nil)
 
 type PurposeResourceModel struct {
 	// AccessProviderResourceModel properties. This has to be duplicated because of https://github.com/hashicorp/terraform-plugin-framework/issues/242
@@ -78,7 +77,7 @@ func (p *PurposeResourceModel) ToAccessProviderInput(ctx context.Context, client
 	return diagnostics
 }
 
-func (p *PurposeResourceModel) FromAccessProvider(input *raitoType.AccessProvider) diag.Diagnostics {
+func (p *PurposeResourceModel) FromAccessProvider(_ context.Context, _ *sdk.RaitoClient, input *raitoType.AccessProvider) diag.Diagnostics {
 	apResourceModel := p.GetAccessProviderResourceModel()
 	diagnostics := apResourceModel.FromAccessProvider(input)
 
@@ -93,11 +92,17 @@ func (p *PurposeResourceModel) FromAccessProvider(input *raitoType.AccessProvide
 }
 
 type PurposeResource struct {
-	AccessProviderResource[*PurposeResourceModel]
+	AccessProviderResource[PurposeResourceModel, *PurposeResourceModel]
 }
 
 func NewPurposeResource() resource.Resource {
-	return &PurposeResource{}
+	return &PurposeResource{
+		AccessProviderResource[PurposeResourceModel, *PurposeResourceModel]{
+			readHooks: []ReadHook[PurposeResourceModel, *PurposeResourceModel]{
+				readPurposeWhatAccessProviders,
+			},
+		},
+	}
 }
 
 func (p *PurposeResource) Metadata(_ context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
@@ -135,68 +140,34 @@ func (p *PurposeResource) Schema(_ context.Context, request resource.SchemaReque
 	}
 }
 
-func (p *PurposeResource) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var data PurposeResourceModel
+func readPurposeWhatAccessProviders(ctx context.Context, client *sdk.RaitoClient, data *PurposeResourceModel) (diagnostics diag.Diagnostics) {
+	if !data.What.IsNull() {
+		whatItemsChannel := client.AccessProvider().GetAccessProviderWhatAccessProviderList(ctx, data.Id.ValueString())
 
-	response.Diagnostics.Append(request.Plan.Get(ctx, &data)...)
+		stateWhatItems := make([]attr.Value, 0)
 
-	if response.Diagnostics.HasError() {
-		return
-	}
+		for whatItem := range whatItemsChannel {
+			if whatItem.HasError() {
+				diagnostics.AddError("Failed to get what access providers", whatItem.GetError().Error())
 
-	p.create(ctx, &data, response)
-}
-
-func (p *PurposeResource) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
-	var data PurposeResourceModel
-
-	response.Diagnostics.Append(request.State.Get(ctx, &data)...)
-
-	if response.Diagnostics.HasError() {
-		return
-	}
-
-	p.read(ctx, &data, response, func(ctx context.Context, client *sdk.RaitoClient, data *PurposeResourceModel) (diagnostics diag.Diagnostics) {
-		if !data.What.IsNull() {
-			whatItemsChannel := client.AccessProvider().GetAccessProviderWhatAccessProviderList(ctx, data.Id.ValueString())
-
-			stateWhatItems := make([]attr.Value, 0)
-
-			for whatItem := range whatItemsChannel {
-				if whatItem.HasError() {
-					diagnostics.AddError("Failed to get what access providers", whatItem.GetError().Error())
-
-					return diagnostics
-				}
-
-				what := whatItem.GetItem()
-
-				stateWhatItems = append(stateWhatItems, types.StringValue(what.AccessProvider.Id))
-			}
-
-			whatAps, whatDiag := types.SetValue(types.StringType, stateWhatItems)
-
-			diagnostics.Append(whatDiag...)
-
-			if diagnostics.HasError() {
 				return diagnostics
 			}
 
-			data.What = whatAps
+			what := whatItem.GetItem()
+
+			stateWhatItems = append(stateWhatItems, types.StringValue(what.AccessProvider.Id))
 		}
 
-		return diagnostics
-	})
-}
+		whatAps, whatDiag := types.SetValue(types.StringType, stateWhatItems)
 
-func (p *PurposeResource) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	var data PurposeResourceModel
+		diagnostics.Append(whatDiag...)
 
-	response.Diagnostics.Append(request.Plan.Get(ctx, &data)...)
+		if diagnostics.HasError() {
+			return diagnostics
+		}
 
-	if response.Diagnostics.HasError() {
-		return
+		data.What = whatAps
 	}
 
-	p.update(ctx, data.Id.ValueString(), &data, response)
+	return diagnostics
 }

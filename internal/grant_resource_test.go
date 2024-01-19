@@ -25,7 +25,7 @@ func TestAccGrantResource(t *testing.T) {
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = "in-sOENPPjsSrZZQPv1qL"
+	data_source = "AU1W7nB9aMc2EBn7iZ5SC"
 	what_data_objects = [
 		{
 			"name": "MASTER_DATA.SALES"
@@ -41,7 +41,7 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttr("raito_grant.test", "data_source", "in-sOENPPjsSrZZQPv1qL"),
+						resource.TestCheckResourceAttr("raito_grant.test", "data_source", "AU1W7nB9aMc2EBn7iZ5SC"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.name", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),
@@ -59,7 +59,7 @@ resource "raito_grant" "test" {
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = "in-sOENPPjsSrZZQPv1qL"
+	data_source = "AU1W7nB9aMc2EBn7iZ5SC"
 	state = "Inactive"
 	what_data_objects = [
 		{
@@ -76,7 +76,7 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttr("raito_grant.test", "data_source", "in-sOENPPjsSrZZQPv1qL"),
+						resource.TestCheckResourceAttr("raito_grant.test", "data_source", "AU1W7nB9aMc2EBn7iZ5SC"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.name", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),

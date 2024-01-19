@@ -11,9 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/sdk"
@@ -65,7 +63,10 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 		return diagnostics
 	}
 
-	result.Type = m.Type.ValueStringPointer()
+	if !m.Type.IsUnknown() {
+		result.Type = m.Type.ValueStringPointer()
+	}
+
 	result.DataSource = m.DataSource.ValueStringPointer()
 	result.Action = utils.Ptr(models.AccessProviderActionGrant)
 
@@ -116,7 +117,7 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 	return diagnostics
 }
 
-func (m *GrantResourceModel) FromAccessProvider(ap *raitoType.AccessProvider) diag.Diagnostics {
+func (m *GrantResourceModel) FromAccessProvider(_ context.Context, _ *sdk.RaitoClient, ap *raitoType.AccessProvider) diag.Diagnostics {
 	apResourceModel := m.GetAccessProviderResourceModel()
 	diagnostics := apResourceModel.FromAccessProvider(ap)
 
@@ -139,29 +140,30 @@ func (m *GrantResourceModel) FromAccessProvider(ap *raitoType.AccessProvider) di
 }
 
 type GrantResource struct {
-	AccessProviderResource[*GrantResourceModel]
+	AccessProviderResource[GrantResourceModel, *GrantResourceModel]
 }
 
 func NewGrantResource() resource.Resource {
-	return &GrantResource{}
+	return &GrantResource{
+		AccessProviderResource[GrantResourceModel, *GrantResourceModel]{
+			readHooks: []ReadHook[GrantResourceModel, *GrantResourceModel]{readGrantWhatItems},
+		},
+	}
 }
 
-func (g GrantResource) Metadata(_ context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
+func (g *GrantResource) Metadata(_ context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = request.ProviderTypeName + "_grant"
 }
 
-func (g GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
+func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
 	attributes := g.schema("grant")
 	attributes["type"] = schema.StringAttribute{
 		Required:            false,
 		Optional:            true,
-		Computed:            true,
+		Computed:            false,
 		Sensitive:           false,
 		Description:         "Type of the grant",
 		MarkdownDescription: "Type of the grant",
-		PlanModifiers: []planmodifier.String{
-			stringplanmodifier.UseStateForUnknown(),
-		},
 	}
 	attributes["data_source"] = schema.StringAttribute{
 		Required:            true,
@@ -308,109 +310,76 @@ func (g GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, respo
 	}
 }
 
-func (g GrantResource) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
-	var data GrantResourceModel
+func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *GrantResourceModel) (diagnostics diag.Diagnostics) {
+	if !data.WhatDataObjects.IsNull() {
+		whatItemsChannel := client.AccessProvider().GetAccessProviderWhatDataObjectList(ctx, data.Id.ValueString())
 
-	response.Diagnostics.Append(request.Plan.Get(ctx, &data)...)
+		stateWhatItems := make([]attr.Value, 0)
 
-	if response.Diagnostics.HasError() {
-		return
-	}
+		for whatItem := range whatItemsChannel {
+			if whatItem.HasError() {
+				diagnostics.AddError("Failed to get what data objects", whatItem.GetError().Error())
 
-	g.create(ctx, &data, response)
-}
-
-func (g GrantResource) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
-	var data GrantResourceModel
-
-	response.Diagnostics.Append(request.State.Get(ctx, &data)...)
-
-	if response.Diagnostics.HasError() {
-		return
-	}
-
-	g.read(ctx, &data, response, func(ctx context.Context, client *sdk.RaitoClient, data *GrantResourceModel) (diagnostics diag.Diagnostics) {
-		if !data.WhatDataObjects.IsNull() {
-			whatItemsChannel := client.AccessProvider().GetAccessProviderWhatDataObjectList(ctx, data.Id.ValueString())
-
-			stateWhatItems := make([]attr.Value, 0)
-
-			for whatItem := range whatItemsChannel {
-				if whatItem.HasError() {
-					diagnostics.AddError("Failed to get what data objects", whatItem.GetError().Error())
-
-					return diagnostics
-				}
-
-				what := whatItem.GetItem()
-
-				var id *string
-
-				if what.DataObject != nil {
-					id = &what.DataObject.FullName
-				} else {
-					diagnostics.AddError("Invalid what data object name", "Data object full name is not set")
-
-					continue
-				}
-
-				permissions := make([]attr.Value, 0, len(what.Permissions))
-				for _, p := range what.Permissions {
-					permissions = append(permissions, types.StringPointerValue(p))
-				}
-
-				globalPermissions := make([]attr.Value, 0, len(what.GlobalPermissions))
-				for _, p := range what.GlobalPermissions {
-					globalPermissions = append(globalPermissions, types.StringValue(strings.ToUpper(*p)))
-				}
-
-				stateWhatItems = append(stateWhatItems, types.ObjectValueMust(map[string]attr.Type{
-					"name": types.StringType,
-					"permissions": types.SetType{
-						ElemType: types.StringType,
-					},
-					"global_permissions": types.SetType{
-						ElemType: types.StringType,
-					},
-				}, map[string]attr.Value{
-					"name":               types.StringPointerValue(id),
-					"permissions":        types.SetValueMust(types.StringType, permissions),
-					"global_permissions": types.SetValueMust(types.StringType, globalPermissions),
-				}))
-			}
-
-			whatDataObject, whatDiag := types.SetValue(types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"name": types.StringType,
-					"permissions": types.SetType{
-						ElemType: types.StringType,
-					},
-					"global_permissions": types.SetType{
-						ElemType: types.StringType,
-					},
-				},
-			}, stateWhatItems)
-
-			diagnostics.Append(whatDiag...)
-			if diagnostics.HasError() {
 				return diagnostics
 			}
 
-			data.WhatDataObjects = whatDataObject
+			what := whatItem.GetItem()
+
+			var id *string
+
+			if what.DataObject != nil {
+				id = &what.DataObject.FullName
+			} else {
+				diagnostics.AddError("Invalid what data object", "Received data object is nil")
+
+				continue
+			}
+
+			permissions := make([]attr.Value, 0, len(what.Permissions))
+			for _, p := range what.Permissions {
+				permissions = append(permissions, types.StringPointerValue(p))
+			}
+
+			globalPermissions := make([]attr.Value, 0, len(what.GlobalPermissions))
+			for _, p := range what.GlobalPermissions {
+				globalPermissions = append(globalPermissions, types.StringValue(strings.ToUpper(*p)))
+			}
+
+			stateWhatItems = append(stateWhatItems, types.ObjectValueMust(map[string]attr.Type{
+				"name": types.StringType,
+				"permissions": types.SetType{
+					ElemType: types.StringType,
+				},
+				"global_permissions": types.SetType{
+					ElemType: types.StringType,
+				},
+			}, map[string]attr.Value{
+				"name":               types.StringPointerValue(id),
+				"permissions":        types.SetValueMust(types.StringType, permissions),
+				"global_permissions": types.SetValueMust(types.StringType, globalPermissions),
+			}))
 		}
 
-		return diagnostics
-	})
-}
+		whatDataObject, whatDiag := types.SetValue(types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"name": types.StringType,
+				"permissions": types.SetType{
+					ElemType: types.StringType,
+				},
+				"global_permissions": types.SetType{
+					ElemType: types.StringType,
+				},
+			},
+		}, stateWhatItems)
 
-func (g GrantResource) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	var data GrantResourceModel
+		diagnostics.Append(whatDiag...)
 
-	response.Diagnostics.Append(request.Plan.Get(ctx, &data)...)
+		if diagnostics.HasError() {
+			return diagnostics
+		}
 
-	if response.Diagnostics.HasError() {
-		return
+		data.WhatDataObjects = whatDataObject
 	}
 
-	g.update(ctx, data.Id.ValueString(), &data, response)
+	return diagnostics
 }

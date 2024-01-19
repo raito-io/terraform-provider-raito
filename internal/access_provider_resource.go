@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/raito-io/golang-set/set"
 	"github.com/raito-io/sdk"
 	raitoType "github.com/raito-io/sdk/types"
@@ -34,18 +35,23 @@ type AccessProviderResourceModel struct {
 	Who         types.Set
 }
 
-type AccessProviderModel interface {
-	ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics
-	FromAccessProvider(input *raitoType.AccessProvider) diag.Diagnostics
+type AccessProviderModel[T any] interface {
+	*T
 	GetAccessProviderResourceModel() *AccessProviderResourceModel
 	SetAccessProviderResourceModel(model *AccessProviderResourceModel)
+	ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics
+	FromAccessProvider(ctx context.Context, client *sdk.RaitoClient, input *raitoType.AccessProvider) diag.Diagnostics
 }
 
-type AccessProviderResource[T AccessProviderModel] struct {
+type ReadHook[T any, ApModel AccessProviderModel[T]] func(ctx context.Context, client *sdk.RaitoClient, data ApModel) diag.Diagnostics
+
+type AccessProviderResource[T any, ApModel AccessProviderModel[T]] struct {
 	client *sdk.RaitoClient
+
+	readHooks []ReadHook[T, ApModel]
 }
 
-func (a *AccessProviderResource[T]) schema(typeName string) map[string]schema.Attribute {
+func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]schema.Attribute {
 	defaultSchema := map[string]schema.Attribute{
 		"id": schema.StringAttribute{
 			Required:            false,
@@ -154,7 +160,19 @@ func (a *AccessProviderResource[T]) schema(typeName string) map[string]schema.At
 	return defaultSchema
 }
 
-func (a *AccessProviderResource[T]) create(ctx context.Context, data T, response *resource.CreateResponse) {
+func (a *AccessProviderResource[T, ApModel]) Create(ctx context.Context, request resource.CreateRequest, response *resource.CreateResponse) {
+	var data T
+
+	response.Diagnostics.Append(request.Plan.Get(ctx, &data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	a.create(ctx, &data, response)
+}
+
+func (a *AccessProviderResource[T, ApModel]) create(ctx context.Context, data ApModel, response *resource.CreateResponse) {
 	input := raitoType.AccessProviderInput{}
 	state := data.GetAccessProviderResourceModel().State
 
@@ -172,7 +190,15 @@ func (a *AccessProviderResource[T]) create(ctx context.Context, data T, response
 		return
 	}
 
-	response.Diagnostics.Append(data.FromAccessProvider(ap)...)
+	tflog.Info(ctx, fmt.Sprintf("Created access provider %s: %+v", ap.Id, ap))
+
+	if ap.Type == nil {
+		tflog.Info(ctx, fmt.Sprintf("Created access provider %s: type is nil", ap.Id))
+	} else {
+		tflog.Info(ctx, fmt.Sprintf("Created access provider %s: type is %s", ap.Id, *ap.Type))
+	}
+
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 
 	if response.Diagnostics.HasError() {
@@ -187,11 +213,11 @@ func (a *AccessProviderResource[T]) create(ctx context.Context, data T, response
 		return
 	}
 
-	response.Diagnostics.Append(data.FromAccessProvider(ap)...)
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }
 
-func (a *AccessProviderResource[T]) updateState(ctx context.Context, data T, state types.String, ap *raitoType.AccessProvider) (_ *raitoType.AccessProvider, diagnostics diag.Diagnostics) {
+func (a *AccessProviderResource[T, ApModel]) updateState(ctx context.Context, data ApModel, state types.String, ap *raitoType.AccessProvider) (_ *raitoType.AccessProvider, diagnostics diag.Diagnostics) {
 	if !state.Equal(data.GetAccessProviderResourceModel().State) {
 		var err error
 
@@ -219,7 +245,19 @@ func (a *AccessProviderResource[T]) updateState(ctx context.Context, data T, sta
 	return ap, diagnostics
 }
 
-func (a *AccessProviderResource[T]) read(ctx context.Context, data T, response *resource.ReadResponse, hooks ...func(ctx context.Context, client *sdk.RaitoClient, data T) diag.Diagnostics) {
+func (a *AccessProviderResource[T, ApModel]) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
+	var data T
+
+	response.Diagnostics.Append(request.State.Get(ctx, &data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	a.read(ctx, &data, response, a.readHooks...)
+}
+
+func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApModel, response *resource.ReadResponse, hooks ...ReadHook[T, ApModel]) {
 	apModel := data.GetAccessProviderResourceModel()
 
 	// Get the access provider
@@ -243,7 +281,7 @@ func (a *AccessProviderResource[T]) read(ctx context.Context, data T, response *
 		return
 	}
 
-	response.Diagnostics.Append(data.FromAccessProvider(ap)...)
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
 
 	if response.Diagnostics.HasError() {
 		return
@@ -354,9 +392,25 @@ func (a *AccessProviderResource[T]) read(ctx context.Context, data T, response *
 	response.State.Set(ctx, data)
 }
 
-func (a *AccessProviderResource[T]) update(ctx context.Context, id string, data T, response *resource.UpdateResponse) {
+func (a *AccessProviderResource[T, ApModel]) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
+	var data T
+
+	response.Diagnostics.Append(request.Plan.Get(ctx, &data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	a.update(ctx, &data, response)
+}
+
+func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data ApModel, response *resource.UpdateResponse) {
 	input := raitoType.AccessProviderInput{}
-	state := data.GetAccessProviderResourceModel().State
+
+	apResourceModel := data.GetAccessProviderResourceModel()
+
+	id := apResourceModel.Id.ValueString()
+	state := apResourceModel.State
 
 	response.Diagnostics.Append(data.ToAccessProviderInput(ctx, a.client, &input)...)
 
@@ -432,7 +486,7 @@ func (a *AccessProviderResource[T]) update(ctx context.Context, id string, data 
 		return
 	}
 
-	response.Diagnostics.Append(data.FromAccessProvider(ap)...)
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 
 	if response.Diagnostics.HasError() {
@@ -447,11 +501,11 @@ func (a *AccessProviderResource[T]) update(ctx context.Context, id string, data 
 		return
 	}
 
-	response.Diagnostics.Append(data.FromAccessProvider(ap)...)
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }
 
-func (a *AccessProviderResource[T]) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
+func (a *AccessProviderResource[T, ApModel]) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
 	var data T
 
 	response.Diagnostics.Append(request.State.Get(ctx, &data)...)
@@ -460,7 +514,9 @@ func (a *AccessProviderResource[T]) Delete(ctx context.Context, request resource
 		return
 	}
 
-	err := a.client.AccessProvider().DeleteAccessProvider(ctx, data.GetAccessProviderResourceModel().Id.ValueString())
+	apModel := ApModel(&data)
+
+	err := a.client.AccessProvider().DeleteAccessProvider(ctx, apModel.GetAccessProviderResourceModel().Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete access provider", err.Error())
 
@@ -470,7 +526,7 @@ func (a *AccessProviderResource[T]) Delete(ctx context.Context, request resource
 	response.State.RemoveResource(ctx)
 }
 
-func (a *AccessProviderResource[T]) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (a *AccessProviderResource[T, ApModel]) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
@@ -499,11 +555,11 @@ func (a *AccessProviderResource[T]) Configure(_ context.Context, req resource.Co
 	a.client = client
 }
 
-func (a *AccessProviderResource[T]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (a *AccessProviderResource[T, ApModel]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func (a *AccessProviderResource[T]) ValidateConfig(ctx context.Context, request resource.ValidateConfigRequest, response *resource.ValidateConfigResponse) {
+func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context, request resource.ValidateConfigRequest, response *resource.ValidateConfigResponse) {
 	var data T
 
 	response.Diagnostics.Append(request.Config.Get(ctx, &data)...)
@@ -512,8 +568,10 @@ func (a *AccessProviderResource[T]) ValidateConfig(ctx context.Context, request 
 		return
 	}
 
+	apModel := ApModel(&data)
+
 	// For each who item check if exactly one of user, group or access_control is set.
-	who := &data.GetAccessProviderResourceModel().Who
+	who := &apModel.GetAccessProviderResourceModel().Who
 
 	if !who.IsNull() {
 		for _, whoItem := range who.Elements() {

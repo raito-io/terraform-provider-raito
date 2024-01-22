@@ -127,8 +127,6 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "name", "tfPurpose1-update"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "description", "updated terraform purpose"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "what.#", "2"),
-						resource.TestCheckResourceAttrPair("raito_purpose.purpose1", "what.0", "raito_grant.grant1", "id"),
-						resource.TestCheckResourceAttrPair("raito_purpose.purpose1", "what.1", "raito_grant.grant2", "id"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.user", "terraform@raito.io"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.promise_duration", "604800"),

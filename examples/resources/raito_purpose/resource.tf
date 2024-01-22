@@ -15,10 +15,10 @@ resource "raito_purpose" "example_purpose" {
   ]
   who = [
     {
-      user = "ruben@raito.io"
+      user = "user1@company.com"
     },
     {
-      user = "dieter@raito.io",
+      user = "user2@company.com",
       promise_duration : 604800
     }
   ]

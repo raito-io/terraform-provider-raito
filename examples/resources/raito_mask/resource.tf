@@ -8,12 +8,8 @@ resource "raito_mask" "example" {
   state       = "Active"
   who = [
     {
-      user : "ruben@raito.io"
+      user : "user1@company.com"
     },
-    {
-      user : "dieter@raito.io"
-      promise_duration : 604800
-    }
   ]
   type        = "SHA256"
   data_source = raito_datasource.ds.id

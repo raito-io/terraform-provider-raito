@@ -1,6 +1,6 @@
 # Configuration-based authentication
 provider "raito" {
-  domain = "raito-domain"
+  domain = "mycompany"
   user   = "terraform@raito.io"
   secret = "password"
 }

@@ -3,12 +3,12 @@
 page_title: "raito_datasource Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Data Source resource
+  The data source resource
 ---
 
 # raito_datasource (Resource)
 
-Data Source resource
+The data source resource
 
 ## Example Usage
 
@@ -29,19 +29,19 @@ resource "raito_datasource" "example" {
 
 ### Required
 
-- `name` (String) Name of the data source
+- `name` (String) The name of the data source
 
 ### Optional
 
-- `description` (String) Description of the data source
-- `identity_stores` (Set of String) Linked identity stores
-- `parent` (String) Parent data source id if applicable
-- `sync_method` (String) Sync method of the data source
+- `description` (String) The description of the data source
+- `identity_stores` (Set of String) The IDs of the linked identity stores
+- `parent` (String) The ID of the parent data source, if applicable
+- `sync_method` (String) The sync method of the data source (should be `ON_PREM` for now)
 
 ### Read-Only
 
-- `id` (String) ID of the data source
-- `native_identity_store` (String) ID of the native identity store
+- `id` (String) The ID of the data source
+- `native_identity_store` (String) The ID of the native identity store
 
 ## Import
 

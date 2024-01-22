@@ -15,7 +15,7 @@ description: |-
 ```terraform
 # Configuration-based authentication
 provider "raito" {
-  domain = "raito-domain"
+  domain = "mycompany"
   user   = "terraform@raito.io"
   secret = "password"
 }
@@ -26,10 +26,10 @@ provider "raito" {
 
 ### Required
 
-- `domain` (String) Domain of Raito Cloud
-- `secret` (String, Sensitive) Secret of Raito Cloud
-- `user` (String) User of Raito Cloud
+- `domain` (String) The subdomain of your Raito Cloud instance (i.e. https://<this_part>.raito.cloud)
+- `secret` (String, Sensitive) The password to use to sign in to your Raito Cloud instance
+- `user` (String) The username to use to sign in to your Raito Cloud instance
 
 ### Optional
 
-- `url_override` (String) If set the URL of the Raito Cloud API will be overridden
+- `url_override` (String) If set, this URL is used as address for the Raito Cloud API. Only used for testing purposes.

@@ -3,12 +3,12 @@
 page_title: "raito_datasource Data Source - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Find datasource based on the name
+  Find a data source based on the name
 ---
 
 # raito_datasource (Data Source)
 
-Find datasource based on the name
+Find a data source based on the name
 
 ## Example Usage
 
@@ -23,13 +23,13 @@ data "raito_datasource" "example" {
 
 ### Required
 
-- `name` (String) Name of the data source to
+- `name` (String) The name of the requested data source
 
 ### Read-Only
 
-- `description` (String) Description of the data source
-- `id` (String) ID of the requested data source
-- `identity_stores` (Set of String) Linked identity stores
-- `native_identity_store` (String) ID of the native identity store
-- `parent` (String) Parent data source id if applicable
-- `sync_method` (String) Sync method of the data source
+- `description` (String) The description of the data source
+- `id` (String) The ID of the requested data source
+- `identity_stores` (Set of String) The IDs of the identity stores that also link to the data source
+- `native_identity_store` (String) The ID of the native identity store
+- `parent` (String) The ID of the parent data source, if applicable
+- `sync_method` (String) The sync method of the data source. Should be set to `ON_PREM` for now.

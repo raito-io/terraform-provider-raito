@@ -116,8 +116,8 @@ func (p *PurposeResource) Schema(_ context.Context, request resource.SchemaReque
 		Optional:            true,
 		Computed:            true,
 		Sensitive:           false,
-		Description:         "Type of the purpose",
-		MarkdownDescription: "Type of the purpose",
+		Description:         "The type of the purpose",
+		MarkdownDescription: "The type of the purpose",
 		PlanModifiers: []planmodifier.String{
 			stringplanmodifier.UseStateForUnknown(),
 		},
@@ -128,14 +128,14 @@ func (p *PurposeResource) Schema(_ context.Context, request resource.SchemaReque
 		Optional:            true,
 		Computed:            false,
 		Sensitive:           false,
-		Description:         "What items associated tot the purpose.",
-		MarkdownDescription: "What items associated tot the purpose. items are managed by Raito Cloud if what is not set (nil).",
+		Description:         "The other access controls that should get linked to this purpose",
+		MarkdownDescription: "The other access controls that should get linked to this purpose. If the user doesn't own the requested access controls, an access request will be created for them.",
 	}
 
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
-		Description:         "Purpose access control resource",
-		MarkdownDescription: "Purpose access control resource",
+		Description:         "The purpose access control resource",
+		MarkdownDescription: "The puurpose access control resource",
 		Version:             1,
 	}
 }

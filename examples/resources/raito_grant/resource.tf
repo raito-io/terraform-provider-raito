@@ -8,10 +8,10 @@ resource "raito_grant" "grant1" {
   state       = "Active"
   who = [
     {
-      user : "ruben@raito.io"
+      user : "user1@company.com"
     },
     {
-      user : "dieter@raito.io"
+      user : "user2@company.com"
       promise_duration : 604800
     }
   ]

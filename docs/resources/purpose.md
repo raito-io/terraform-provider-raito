@@ -3,12 +3,12 @@
 page_title: "raito_purpose Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Purpose access control resource
+  The puurpose access control resource
 ---
 
 # raito_purpose (Resource)
 
-Purpose access control resource
+The puurpose access control resource
 
 ## Example Usage
 
@@ -30,10 +30,10 @@ resource "raito_purpose" "example_purpose" {
   ]
   who = [
     {
-      user = "ruben@raito.io"
+      user = "user1@company.com"
     },
     {
-      user = "dieter@raito.io",
+      user = "user2@company.com",
       promise_duration : 604800
     }
   ]
@@ -45,29 +45,29 @@ resource "raito_purpose" "example_purpose" {
 
 ### Required
 
-- `name` (String) Name of the purpose
+- `name` (String) The name of the purpose
 
 ### Optional
 
-- `description` (String) Description of the purpose
-- `state` (String) State of the purpose. Possible values: ["Active", "Inactive"]
-- `type` (String) Type of the purpose
-- `what` (Set of String) What items associated tot the purpose. items are managed by Raito Cloud if what is not set (nil).
-- `who` (Attributes Set) Who items associated to the purpose. May not be set if who_abac_rule is set. Items are managed by Raito Cloud of who is not set (nil) (see [below for nested schema](#nestedatt--who))
+- `description` (String) The description of the purpose
+- `state` (String) The state of the purpose Possible values are: ["Active", "Inactive"]
+- `type` (String) The type of the purpose
+- `what` (Set of String) The other access controls that should get linked to this purpose. If the user doesn't own the requested access controls, an access request will be created for them.
+- `who` (Attributes Set) The who-items associated with the purpose. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
 
 ### Read-Only
 
-- `id` (String) ID of the purpose
+- `id` (String) The ID of the purpose
 
 <a id="nestedatt--who"></a>
 ### Nested Schema for `who`
 
 Optional:
 
-- `access_control` (String) Raito access control ID. Can not be set if user or group is set.
-- `group` (String) Raito group ID. Can not be set if user or access control is set.
-- `promise_duration` (Number) Set promise_duration to indicate who item as promise. Defined in seconds.
-- `user` (String) Email address of user. Can not be set if group or access control is set.
+- `access_control` (String) The ID of the access control in Raito Cloud. Cannot be set if `user` or `group` is set.
+- `group` (String) The ID of the group in Raito Cloud. This cannot be set if `user` or `access_control` is set.
+- `promise_duration` (Number) Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.
+- `user` (String) The email address of user. This cannot be set if `group` or `access_control` is set.
 
 ## Import
 

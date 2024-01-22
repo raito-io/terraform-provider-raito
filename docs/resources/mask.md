@@ -3,12 +3,12 @@
 page_title: "raito_mask Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Mask access control resource
+  The mask access control resource
 ---
 
 # raito_mask (Resource)
 
-Mask access control resource
+The mask access control resource
 
 ## Example Usage
 
@@ -23,12 +23,8 @@ resource "raito_mask" "example" {
   state       = "Active"
   who = [
     {
-      user : "ruben@raito.io"
+      user : "user1@company.com"
     },
-    {
-      user : "dieter@raito.io"
-      promise_duration : 604800
-    }
   ]
   type        = "SHA256"
   data_source = raito_datasource.ds.id
@@ -43,30 +39,30 @@ resource "raito_mask" "example" {
 
 ### Required
 
-- `data_source` (String) Data source ID of the mask
-- `name` (String) Name of the mask
+- `data_source` (String) The ID of the data source of the mask
+- `name` (String) The name of the mask
 
 ### Optional
 
-- `columns` (Set of String) Full name of columns that should be included in the mask. Items are managed by Raito Cloud if columns is not set (nil).
-- `description` (String) Description of the mask
-- `state` (String) State of the mask. Possible values: ["Active", "Inactive"]
-- `type` (String) Type of the mask. This defines how the data is masked. Available types are defined by the data source.
-- `who` (Attributes Set) Who items associated to the mask. May not be set if who_abac_rule is set. Items are managed by Raito Cloud of who is not set (nil) (see [below for nested schema](#nestedatt--who))
+- `columns` (Set of String) The full name of columns that should be included in the mask. Items are managed by Raito Cloud if columns is not set (nil).
+- `description` (String) The description of the mask
+- `state` (String) The state of the mask Possible values are: ["Active", "Inactive"]
+- `type` (String) The masking method, which defines how the data is masked. Available types are defined by the data source.
+- `who` (Attributes Set) The who-items associated with the mask. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
 
 ### Read-Only
 
-- `id` (String) ID of the mask
+- `id` (String) The ID of the mask
 
 <a id="nestedatt--who"></a>
 ### Nested Schema for `who`
 
 Optional:
 
-- `access_control` (String) Raito access control ID. Can not be set if user or group is set.
-- `group` (String) Raito group ID. Can not be set if user or access control is set.
-- `promise_duration` (Number) Set promise_duration to indicate who item as promise. Defined in seconds.
-- `user` (String) Email address of user. Can not be set if group or access control is set.
+- `access_control` (String) The ID of the access control in Raito Cloud. Cannot be set if `user` or `group` is set.
+- `group` (String) The ID of the group in Raito Cloud. This cannot be set if `user` or `access_control` is set.
+- `promise_duration` (Number) Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.
+- `user` (String) The email address of user. This cannot be set if `group` or `access_control` is set.
 
 ## Import
 

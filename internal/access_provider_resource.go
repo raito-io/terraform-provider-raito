@@ -58,8 +58,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Optional:            false,
 			Computed:            true,
 			Sensitive:           false,
-			Description:         fmt.Sprintf("ID of the %s", typeName),
-			MarkdownDescription: fmt.Sprintf("ID of the %s", typeName),
+			Description:         fmt.Sprintf("The ID of the %s.", typeName),
+			MarkdownDescription: fmt.Sprintf("The ID of the %s", typeName),
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.UseStateForUnknown(),
 			},
@@ -69,8 +69,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Optional:            false,
 			Computed:            false,
 			Sensitive:           false,
-			Description:         fmt.Sprintf("Name of the %s", typeName),
-			MarkdownDescription: fmt.Sprintf("Name of the %s", typeName),
+			Description:         fmt.Sprintf("The name of the %s", typeName),
+			MarkdownDescription: fmt.Sprintf("The name of the %s", typeName),
 			Validators: []validator.String{
 				stringvalidator.LengthAtLeast(3),
 			},
@@ -80,8 +80,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Optional:            true,
 			Computed:            true,
 			Sensitive:           false,
-			Description:         fmt.Sprintf("Description of the %s", typeName),
-			MarkdownDescription: fmt.Sprintf("Description of the %s", typeName),
+			Description:         fmt.Sprintf("The description of the %s", typeName),
+			MarkdownDescription: fmt.Sprintf("The description of the %s", typeName),
 			Default:             stringdefault.StaticString(""),
 		},
 		"state": schema.StringAttribute{
@@ -89,8 +89,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Optional:            true,
 			Computed:            true,
 			Sensitive:           false,
-			Description:         fmt.Sprintf("State of the %s", typeName),
-			MarkdownDescription: fmt.Sprintf("State of the %s. Possible values: [%q, %q]", typeName, models.AccessProviderStateActive.String(), models.AccessProviderStateInactive.String()),
+			Description:         fmt.Sprintf("The state of the %s", typeName),
+			MarkdownDescription: fmt.Sprintf("The state of the %s Possible values are: [%q, %q]", typeName, models.AccessProviderStateActive.String(), models.AccessProviderStateInactive.String()),
 			Validators: []validator.String{
 				stringvalidator.OneOf(models.AccessProviderStateActive.String(), models.AccessProviderStateInactive.String()),
 			},
@@ -104,8 +104,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 						Optional:            true,
 						Computed:            false,
 						Sensitive:           false,
-						Description:         "Email address of user",
-						MarkdownDescription: "Email address of user. Can not be set if group or access control is set.",
+						Description:         "The email address of user",
+						MarkdownDescription: "The email address of user. This cannot be set if `group` or `access_control` is set.",
 						Validators: []validator.String{
 							stringvalidator.RegexMatches(regexp.MustCompile(`.+@.+\..+`), "value must be a valid email address"),
 						},
@@ -115,8 +115,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 						Optional:            true,
 						Computed:            false,
 						Sensitive:           false,
-						Description:         "Raito group ID",
-						MarkdownDescription: "Raito group ID. Can not be set if user or access control is set.",
+						Description:         "The ID of the group in Raito Cloud",
+						MarkdownDescription: "The ID of the group in Raito Cloud. This cannot be set if `user` or `access_control` is set.",
 						Validators: []validator.String{
 							stringvalidator.LengthAtLeast(3),
 						},
@@ -126,8 +126,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 						Optional:            true,
 						Computed:            false,
 						Sensitive:           false,
-						Description:         "Raito access control ID",
-						MarkdownDescription: "Raito access control ID. Can not be set if user or group is set.",
+						Description:         "The ID of the access control in Raito Cloud",
+						MarkdownDescription: "The ID of the access control in Raito Cloud. Cannot be set if `user` or `group` is set.",
 						Validators: []validator.String{
 							stringvalidator.LengthAtLeast(3),
 						},
@@ -137,8 +137,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 						Optional:            true,
 						Computed:            false,
 						Sensitive:           false,
-						Description:         "Set to indicate who item as promise in seconds",
-						MarkdownDescription: "Set promise_duration to indicate who item as promise. Defined in seconds.",
+						Description:         "Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.",
+						MarkdownDescription: "Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.",
 						Validators: []validator.Int64{
 							int64validator.AtLeast(1),
 						},
@@ -152,8 +152,8 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Optional:            true,
 			Computed:            false,
 			Sensitive:           false,
-			Description:         fmt.Sprintf("Who items associated to the %s", typeName),
-			MarkdownDescription: fmt.Sprintf("Who items associated to the %s. May not be set if who_abac_rule is set. Items are managed by Raito Cloud of who is not set (nil)", typeName),
+			Description:         fmt.Sprintf("The who-items associated with the %s", typeName),
+			MarkdownDescription: fmt.Sprintf("The who-items associated with the %s. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud.", typeName),
 		},
 	}
 
@@ -289,7 +289,7 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 
 	apModel = data.GetAccessProviderResourceModel()
 
-	// If who in initial state is not nil, get all who items
+	// If who in initial state is not nil, get all who-items
 	if !apModel.Who.IsNull() {
 		definedPromises := set.Set[string]{}
 
@@ -311,11 +311,11 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 
 		stateWhoItems := make([]attr.Value, 0)
 
-		// Get all who items. Ignore implemented promises.
+		// Get all who-items. Ignore implemented promises.
 		whoItems := a.client.AccessProvider().GetAccessProviderWhoList(ctx, apModel.Id.ValueString())
 		for whoItem := range whoItems {
 			if whoItem.HasError() {
-				response.Diagnostics.AddError("Failed to read who item from access provider", whoItem.GetError().Error())
+				response.Diagnostics.AddError("Failed to read who-item from access provider", whoItem.GetError().Error())
 
 				return
 			}
@@ -331,7 +331,7 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 			case *raitoType.AccessProviderWhoListItemItemAccessProvider:
 				whoAp = &benificiaryItem.Id
 			default:
-				response.Diagnostics.AddError("Invalid who item", fmt.Sprintf("Invalid who item: %T", benificiaryItem))
+				response.Diagnostics.AddError("Invalid who-item", fmt.Sprintf("Invalid who-item: %T", benificiaryItem))
 
 				return
 			}
@@ -341,7 +341,7 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 					continue
 				}
 			} else if item.PromiseDuration == nil {
-				response.Diagnostics.AddError("Invalid who item detected.", "Invalid who item. Promise duration not set on promise who item")
+				response.Diagnostics.AddError("Invalid who-item detected.", "Invalid who-item. Promise duration not set on promise who-item")
 			}
 
 			stateWhoItems = append(stateWhoItems, types.ObjectValueMust(
@@ -436,7 +436,7 @@ func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data Ap
 	whoItemChannel := a.client.AccessProvider().GetAccessProviderWhoList(ctx, id)
 	for whoItem := range whoItemChannel {
 		if whoItem.HasError() {
-			response.Diagnostics.AddError("Failed to read who item from access provider", whoItem.GetError().Error())
+			response.Diagnostics.AddError("Failed to read who-item from access provider", whoItem.GetError().Error())
 
 			return
 		}
@@ -570,7 +570,7 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 
 	apModel := ApModel(&data)
 
-	// For each who item check if exactly one of user, group or access_control is set.
+	// For each who-item check if exactly one of user, group or access_control is set.
 	who := &apModel.GetAccessProviderResourceModel().Who
 
 	if !who.IsNull() {
@@ -593,7 +593,7 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 
 			if attributesFound != 1 {
 				response.Diagnostics.AddError(
-					"Invalid who item. Exactly one of user, group or access_control must be set.",
+					"Invalid who-item. Exactly one of user, group or access_control must be set.",
 					fmt.Sprintf("Expected exactly one of user, group or access_control, got: %d.", attributesFound),
 				)
 
@@ -642,7 +642,7 @@ func (a *AccessProviderResourceModel) ToAccessProviderInput(ctx context.Context,
 			} else if accessControlAttribute, found := whoAttributes["access_control"]; found && !accessControlAttribute.IsNull() {
 				raitoWhoItem.AccessProvider = accessControlAttribute.(types.String).ValueStringPointer()
 			} else {
-				diagnostics.AddError("Failed to get who item", "No user, group, or access control set")
+				diagnostics.AddError("Failed to get who-item", "No user, group, or access control set")
 
 				continue
 			}

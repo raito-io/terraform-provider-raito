@@ -23,10 +23,10 @@ resource "raito_grant" "grant1" {
   state       = "Active"
   who = [
     {
-      user : "ruben@raito.io"
+      user : "user1@company.com"
     },
     {
-      user : "dieter@raito.io"
+      user : "user2@company.com"
       promise_duration : 604800
     }
   ]
@@ -65,32 +65,32 @@ resource "raito_grant" "grant2" {
 
 ### Required
 
-- `data_source` (String) Data source ID of the grant
-- `name` (String) Name of the grant
+- `data_source` (String) The ID of the data source of the grant
+- `name` (String) The name of the grant
 
 ### Optional
 
-- `description` (String) Description of the grant
-- `state` (String) State of the grant. Possible values: ["Active", "Inactive"]
-- `type` (String) Type of the grant
-- `what_data_objects` (Attributes Set) Data objects what items associated to the grant. May not be set if what_abac_rule is set. Items are managed by Raito Cloud if what_data_objects is not set (nil). (see [below for nested schema](#nestedatt--what_data_objects))
-- `who` (Attributes Set) Who items associated to the grant. May not be set if who_abac_rule is set. Items are managed by Raito Cloud of who is not set (nil) (see [below for nested schema](#nestedatt--who))
+- `description` (String) The description of the grant
+- `state` (String) The state of the grant Possible values are: ["Active", "Inactive"]
+- `type` (String) The type of the grant
+- `what_data_objects` (Attributes Set) The data object what items associated to the grant. When this is not set (nil), the what list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--what_data_objects))
+- `who` (Attributes Set) The who-items associated with the grant. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
 
 ### Read-Only
 
-- `id` (String) ID of the grant
+- `id` (String) The ID of the grant
 
 <a id="nestedatt--what_data_objects"></a>
 ### Nested Schema for `what_data_objects`
 
 Required:
 
-- `fullname` (String) Full name of the data object in the data source
+- `fullname` (String) The full name of the data object in the data source
 
 Optional:
 
-- `global_permissions` (Set of String) Set of global permissions granted to the data object. Allowed values are [READ WRITE ADMIN]
-- `permissions` (Set of String) Set of permissions granted to the data object
+- `global_permissions` (Set of String) The set of global permissions granted to the data object. Allowed values are [READ WRITE ADMIN]
+- `permissions` (Set of String) The set of permissions granted to the data object
 
 
 <a id="nestedatt--who"></a>
@@ -98,10 +98,10 @@ Optional:
 
 Optional:
 
-- `access_control` (String) Raito access control ID. Can not be set if user or group is set.
-- `group` (String) Raito group ID. Can not be set if user or access control is set.
-- `promise_duration` (Number) Set promise_duration to indicate who item as promise. Defined in seconds.
-- `user` (String) Email address of user. Can not be set if group or access control is set.
+- `access_control` (String) The ID of the access control in Raito Cloud. Cannot be set if `user` or `group` is set.
+- `group` (String) The ID of the group in Raito Cloud. This cannot be set if `user` or `access_control` is set.
+- `promise_duration` (Number) Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.
+- `user` (String) The email address of user. This cannot be set if `group` or `access_control` is set.
 
 ## Import
 

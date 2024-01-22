@@ -3,12 +3,12 @@
 page_title: "raito_identitystore Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Identity store resource
+  The identity store resource
 ---
 
 # raito_identitystore (Resource)
 
-Identity store resource
+The identity store resource
 
 ## Example Usage
 
@@ -25,16 +25,16 @@ resource "raito_identitystore" "example" {
 
 ### Required
 
-- `name` (String) Name of the identity store
+- `name` (String) The name of the identity store
 
 ### Optional
 
-- `description` (String) Description of the identity store
-- `master` (Boolean) Is this the master identity store
+- `description` (String) The description of the identity store
+- `master` (Boolean) `True`, if this is a master identity store
 
 ### Read-Only
 
-- `id` (String) ID of the identity store
+- `id` (String) The ID of the identity store
 
 ## Import
 

@@ -162,16 +162,16 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 		Optional:            true,
 		Computed:            false,
 		Sensitive:           false,
-		Description:         "Type of the grant",
-		MarkdownDescription: "Type of the grant",
+		Description:         "The type of the grant",
+		MarkdownDescription: "The type of the grant",
 	}
 	attributes["data_source"] = schema.StringAttribute{
 		Required:            true,
 		Optional:            false,
 		Computed:            false,
 		Sensitive:           false,
-		Description:         "Data source ID of the grant",
-		MarkdownDescription: "Data source ID of the grant",
+		Description:         "The ID of the data source of the grant",
+		MarkdownDescription: "The ID of the data source of the grant",
 		Validators: []validator.String{
 			stringvalidator.LengthAtLeast(3),
 		},
@@ -184,8 +184,8 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					Optional:            false,
 					Computed:            false,
 					Sensitive:           false,
-					Description:         "Full name of the data object in the data source",
-					MarkdownDescription: "Full name of the data object in the data source",
+					Description:         "The full name of the data object in the data source",
+					MarkdownDescription: "The full name of the data object in the data source",
 				},
 				"permissions": schema.SetAttribute{
 					ElementType:         types.StringType,
@@ -193,8 +193,8 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					Optional:            true,
 					Computed:            true,
 					Sensitive:           false,
-					Description:         "Set of permissions granted to the data object",
-					MarkdownDescription: "Set of permissions granted to the data object",
+					Description:         "The set of permissions granted to the data object",
+					MarkdownDescription: "The set of permissions granted to the data object",
 					Default:             setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
 				},
 				"global_permissions": schema.SetAttribute{
@@ -203,8 +203,8 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					Optional:            true,
 					Computed:            true,
 					Sensitive:           false,
-					Description:         "Set of global permissions granted to the data object",
-					MarkdownDescription: fmt.Sprintf("Set of global permissions granted to the data object. Allowed values are %v", types2.AllGlobalPermissions),
+					Description:         "The set of global permissions granted to the data object",
+					MarkdownDescription: fmt.Sprintf("The set of global permissions granted to the data object. Allowed values are %v", types2.AllGlobalPermissions),
 					Validators: []validator.Set{
 						setvalidator.ValueStringsAre(
 							stringvalidator.OneOf(types2.AllGlobalPermissions...),
@@ -220,8 +220,8 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 		Optional:            true,
 		Computed:            false,
 		Sensitive:           false,
-		Description:         "Data objects what items associated to the grant.",
-		MarkdownDescription: "Data objects what items associated to the grant. May not be set if what_abac_rule is set. Items are managed by Raito Cloud if what_data_objects is not set (nil).",
+		Description:         "The data object what items associated to the grant.",
+		MarkdownDescription: "The data object what items associated to the grant. When this is not set (nil), the what list will not be overridden. This is typically used when this should be managed from Raito Cloud.",
 	}
 	// TODO once abac is in production
 	//attributes["what_abac_rule"] = schema.SetNestedAttribute{

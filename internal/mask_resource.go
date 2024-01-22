@@ -152,16 +152,16 @@ func (m *MaskResource) Schema(ctx context.Context, request resource.SchemaReques
 		Optional:            true,
 		Computed:            true,
 		Sensitive:           false,
-		Description:         "Type of the mask/masking method.",
-		MarkdownDescription: "Type of the mask. This defines how the data is masked. Available types are defined by the data source.",
+		Description:         "The masking method",
+		MarkdownDescription: "The masking method, which defines how the data is masked. Available types are defined by the data source.",
 	}
 	attributes["data_source"] = schema.StringAttribute{
 		Required:            true,
 		Optional:            false,
 		Computed:            false,
 		Sensitive:           false,
-		Description:         "Data source ID of the mask",
-		MarkdownDescription: "Data source ID of the mask",
+		Description:         "The ID of the data source of the mask",
+		MarkdownDescription: "The ID of the data source of the mask",
 		Validators: []validator.String{
 			stringvalidator.LengthAtLeast(3),
 		},
@@ -172,15 +172,15 @@ func (m *MaskResource) Schema(ctx context.Context, request resource.SchemaReques
 		Optional:            true,
 		Computed:            false,
 		Sensitive:           false,
-		Description:         "Full name of columns that should be included in the mask",
-		MarkdownDescription: "Full name of columns that should be included in the mask. Items are managed by Raito Cloud if columns is not set (nil).",
+		Description:         "The full name of columns that should be included in the mask",
+		MarkdownDescription: "The full name of columns that should be included in the mask. Items are managed by Raito Cloud if columns is not set (nil).",
 	}
 	//TODO abac rule
 
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
-		Description:         "Mask access control resource",
-		MarkdownDescription: "Mask access control resource",
+		Description:         "The mask access control resource",
+		MarkdownDescription: "The mask access control resource",
 		Version:             1,
 	}
 }

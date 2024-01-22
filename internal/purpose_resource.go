@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -29,7 +28,6 @@ type PurposeResourceModel struct {
 
 	// PurposeResourceModel properties.
 	Type types.String `tfsdk:"type"`
-	What types.Set    `tfsdk:"what"`
 }
 
 func (p *PurposeResourceModel) GetAccessProviderResourceModel() *AccessProviderResourceModel {
@@ -60,20 +58,6 @@ func (p *PurposeResourceModel) ToAccessProviderInput(ctx context.Context, client
 	result.Type = p.Type.ValueStringPointer()
 	result.Action = utils.Ptr(models.AccessProviderActionPurpose)
 
-	if !p.What.IsNull() && !p.What.IsUnknown() {
-		elements := p.What.Elements()
-
-		result.WhatAccessProviders = make([]raitoType.AccessProviderWhatInputAP, 0, len(elements))
-
-		for _, whatApObject := range elements {
-			whatApId := whatApObject.(types.String)
-
-			result.WhatAccessProviders = append(result.WhatAccessProviders, raitoType.AccessProviderWhatInputAP{
-				AccessProvider: whatApId.ValueString(),
-			})
-		}
-	}
-
 	return diagnostics
 }
 
@@ -97,11 +81,7 @@ type PurposeResource struct {
 
 func NewPurposeResource() resource.Resource {
 	return &PurposeResource{
-		AccessProviderResource[PurposeResourceModel, *PurposeResourceModel]{
-			readHooks: []ReadHook[PurposeResourceModel, *PurposeResourceModel]{
-				readPurposeWhatAccessProviders,
-			},
-		},
+		AccessProviderResource[PurposeResourceModel, *PurposeResourceModel]{},
 	}
 }
 
@@ -122,15 +102,6 @@ func (p *PurposeResource) Schema(_ context.Context, request resource.SchemaReque
 			stringplanmodifier.UseStateForUnknown(),
 		},
 	}
-	attributes["what"] = schema.SetAttribute{
-		ElementType:         types.StringType,
-		Required:            false,
-		Optional:            true,
-		Computed:            false,
-		Sensitive:           false,
-		Description:         "The other access controls that should get linked to this purpose",
-		MarkdownDescription: "The other access controls that should get linked to this purpose. If the user doesn't own the requested access controls, an access request will be created for them.",
-	}
 
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
@@ -138,36 +109,4 @@ func (p *PurposeResource) Schema(_ context.Context, request resource.SchemaReque
 		MarkdownDescription: "The purpose access control resource",
 		Version:             1,
 	}
-}
-
-func readPurposeWhatAccessProviders(ctx context.Context, client *sdk.RaitoClient, data *PurposeResourceModel) (diagnostics diag.Diagnostics) {
-	if !data.What.IsNull() {
-		whatItemsChannel := client.AccessProvider().GetAccessProviderWhatAccessProviderList(ctx, data.Id.ValueString())
-
-		stateWhatItems := make([]attr.Value, 0)
-
-		for whatItem := range whatItemsChannel {
-			if whatItem.HasError() {
-				diagnostics.AddError("Failed to get what access providers", whatItem.GetError().Error())
-
-				return diagnostics
-			}
-
-			what := whatItem.GetItem()
-
-			stateWhatItems = append(stateWhatItems, types.StringValue(what.AccessProvider.Id))
-		}
-
-		whatAps, whatDiag := types.SetValue(types.StringType, stateWhatItems)
-
-		diagnostics.Append(whatDiag...)
-
-		if diagnostics.HasError() {
-			return diagnostics
-		}
-
-		data.What = whatAps
-	}
-
-	return diagnostics
 }

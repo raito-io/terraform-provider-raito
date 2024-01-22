@@ -52,7 +52,6 @@ resource "raito_purpose" "example_purpose" {
 - `description` (String) The description of the purpose
 - `state` (String) The state of the purpose Possible values are: ["Active", "Inactive"]
 - `type` (String) The type of the purpose
-- `what` (Set of String) The other access controls that should get linked to this purpose. If the user doesn't own the requested access controls, an access request will be created for them.
 - `who` (Attributes Set) The who-items associated with the purpose. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
 
 ### Read-Only

@@ -3,12 +3,12 @@
 page_title: "raito_purpose Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The puurpose access control resource
+  The purpose access control resource
 ---
 
 # raito_purpose (Resource)
 
-The puurpose access control resource
+The purpose access control resource
 
 ## Example Usage
 

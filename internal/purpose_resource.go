@@ -135,7 +135,7 @@ func (p *PurposeResource) Schema(_ context.Context, request resource.SchemaReque
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
 		Description:         "The purpose access control resource",
-		MarkdownDescription: "The puurpose access control resource",
+		MarkdownDescription: "The purpose access control resource",
 		Version:             1,
 	}
 }

@@ -1,10 +1,12 @@
 package internal
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
+	"github.com/raito-io/sdk/types"
 )
 
 func TestAccDataSourceDataSource(t *testing.T) {
@@ -25,6 +27,14 @@ func TestAccDataSourceDataSource(t *testing.T) {
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.raito_datasource.test", "name", "Snowflake"),
+					resource.TestCheckResourceAttrWith("data.raito_datasource.test", "id", func(value string) error {
+						if value == "" {
+							return errors.New("ID is not set")
+						}
+
+						return nil
+					}),
+					resource.TestCheckResourceAttr("data.raito_datasource.test", "sync_method", string(types.DataSourceSyncMethodOnPrem)),
 				),
 			},
 		},

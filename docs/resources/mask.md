@@ -73,5 +73,6 @@ Optional:
 Import is supported using the following syntax:
 
 ```shell
+#Import mask. Not that who and columns will not be imported
 terraform import raito_mask.example MaskId
 ```

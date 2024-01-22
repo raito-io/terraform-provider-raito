@@ -79,7 +79,7 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 			whatDataObjectObject := whatDataObject.(types.Object)
 			whatDataObjectAttributes := whatDataObjectObject.Attributes()
 
-			fullname := whatDataObjectAttributes["name"].(types.String).ValueString()
+			fullname := whatDataObjectAttributes["fullname"].(types.String).ValueString()
 
 			doId, err := client.DataObject().GetDataObjectIdByName(ctx, fullname, *result.DataSource)
 			if err != nil {
@@ -179,7 +179,7 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 	attributes["what_data_objects"] = schema.SetNestedAttribute{
 		NestedObject: schema.NestedAttributeObject{
 			Attributes: map[string]schema.Attribute{
-				"name": schema.StringAttribute{
+				"fullname": schema.StringAttribute{
 					Required:            true,
 					Optional:            false,
 					Computed:            false,
@@ -346,7 +346,7 @@ func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *Gran
 			}
 
 			stateWhatItems = append(stateWhatItems, types.ObjectValueMust(map[string]attr.Type{
-				"name": types.StringType,
+				"fullname": types.StringType,
 				"permissions": types.SetType{
 					ElemType: types.StringType,
 				},
@@ -354,7 +354,7 @@ func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *Gran
 					ElemType: types.StringType,
 				},
 			}, map[string]attr.Value{
-				"name":               types.StringPointerValue(id),
+				"fullname":           types.StringPointerValue(id),
 				"permissions":        types.SetValueMust(types.StringType, permissions),
 				"global_permissions": types.SetValueMust(types.StringType, globalPermissions),
 			}))
@@ -362,7 +362,7 @@ func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *Gran
 
 		whatDataObject, whatDiag := types.SetValue(types.ObjectType{
 			AttrTypes: map[string]attr.Type{
-				"name": types.StringType,
+				"fullname": types.StringType,
 				"permissions": types.SetType{
 					ElemType: types.StringType,
 				},

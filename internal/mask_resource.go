@@ -150,7 +150,7 @@ func (m *MaskResource) Schema(ctx context.Context, request resource.SchemaReques
 	attributes["type"] = schema.StringAttribute{
 		Required:            false,
 		Optional:            true,
-		Computed:            false,
+		Computed:            true,
 		Sensitive:           false,
 		Description:         "Type of the mask/masking method.",
 		MarkdownDescription: "Type of the mask. This defines how the data is masked. Available types are defined by the data source.",

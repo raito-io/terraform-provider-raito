@@ -21,14 +21,18 @@ func TestAccGrantResource(t *testing.T) {
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 			Steps: []resource.TestStep{
 				{
-					Config: providerConfig + fmt.Sprintf(`
+					Config: providerConfig + `
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = "AU1W7nB9aMc2EBn7iZ5SC"
+	data_source = data.raito_datasource.ds.id
 	what_data_objects = [
 		{
-			"name": "MASTER_DATA.SALES"
+			"fullname": "MASTER_DATA.SALES"
 		}
 	]
 	who = [
@@ -37,13 +41,13 @@ resource "raito_grant" "test" {
 		}
 	]
 }
-`),
+`,
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttr("raito_grant.test", "data_source", "AU1W7nB9aMc2EBn7iZ5SC"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
-						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.name", "MASTER_DATA.SALES"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.0.user", "terraform@raito.io"),
 					),
@@ -56,14 +60,19 @@ resource "raito_grant" "test" {
 				},
 				{
 					Config: providerConfig + fmt.Sprintf(`
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = "AU1W7nB9aMc2EBn7iZ5SC"
+	data_source = data.raito_datasource.ds.id
 	state = "Inactive"
 	what_data_objects = [
 		{
-			"name": "MASTER_DATA.SALES"
+			fullname: "MASTER_DATA.SALES"
+			permissions: ["SELECT"]
 		}
 	]
 	who = [
@@ -76,9 +85,11 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttr("raito_grant.test", "data_source", "AU1W7nB9aMc2EBn7iZ5SC"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
-						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.name", "MASTER_DATA.SALES"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.permissions.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.permissions.0", "SELECT"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.0.user", "terraform@raito.io"),
 					),

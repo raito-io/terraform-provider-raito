@@ -85,7 +85,7 @@ resource "raito_grant" "grant2" {
 
 Required:
 
-- `name` (String) Full name of the data object in the data source
+- `fullname` (String) Full name of the data object in the data source
 
 Optional:
 
@@ -108,5 +108,6 @@ Optional:
 Import is supported using the following syntax:
 
 ```shell
+#Import grant. Not that who and what_data_objects will not be imported
 terraform import raito_grant.example GrantId
 ```

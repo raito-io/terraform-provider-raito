@@ -312,7 +312,10 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 
 func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *GrantResourceModel) (diagnostics diag.Diagnostics) {
 	if !data.WhatDataObjects.IsNull() {
-		whatItemsChannel := client.AccessProvider().GetAccessProviderWhatDataObjectList(ctx, data.Id.ValueString())
+		cancelCtx, cancelFunc := context.WithCancel(ctx)
+		defer cancelFunc()
+
+		whatItemsChannel := client.AccessProvider().GetAccessProviderWhatDataObjectList(cancelCtx, data.Id.ValueString())
 
 		stateWhatItems := make([]attr.Value, 0)
 

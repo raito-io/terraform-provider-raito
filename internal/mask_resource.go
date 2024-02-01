@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/raito-io/sdk"
 	raitoType "github.com/raito-io/sdk/types"
 	"github.com/raito-io/sdk/types/models"
@@ -87,8 +86,6 @@ func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *s
 			})
 		}
 	}
-
-	tflog.Info(ctx, fmt.Sprintf("MaskResourceModel: %+v", result))
 
 	return diagnostics
 }
@@ -185,21 +182,12 @@ func (m *MaskResource) Schema(ctx context.Context, request resource.SchemaReques
 	}
 }
 
-func (m *MaskResource) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
-	var data MaskResourceModel
-
-	response.Diagnostics.Append(request.Plan.Get(ctx, &data)...)
-
-	if response.Diagnostics.HasError() {
-		return
-	}
-
-	m.update(ctx, &data, response)
-}
-
 func readMaskResourceColumns(ctx context.Context, client *sdk.RaitoClient, data *MaskResourceModel) (diagnostics diag.Diagnostics) {
 	if !data.Columns.IsNull() {
-		whatItemsChannel := client.AccessProvider().GetAccessProviderWhatDataObjectList(ctx, data.Id.ValueString())
+		cancelCtx, cancelFunc := context.WithCancel(ctx)
+		defer cancelFunc()
+
+		whatItemsChannel := client.AccessProvider().GetAccessProviderWhatDataObjectList(cancelCtx, data.Id.ValueString())
 
 		stateWhatItems := make([]attr.Value, 0)
 

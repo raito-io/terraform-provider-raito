@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/raito-io/golang-set/set"
 	"github.com/raito-io/sdk"
+	"github.com/raito-io/sdk/services"
 	raitoType "github.com/raito-io/sdk/types"
 	"github.com/raito-io/sdk/types/models"
 
@@ -311,51 +312,9 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 
 		stateWhoItems := make([]attr.Value, 0)
 
-		// Get all who-items. Ignore implemented promises.
-		whoItems := a.client.AccessProvider().GetAccessProviderWhoList(ctx, apModel.Id.ValueString())
-		for whoItem := range whoItems {
-			if whoItem.HasError() {
-				response.Diagnostics.AddError("Failed to read who-item from access provider", whoItem.GetError().Error())
-
-				return
-			}
-
-			var user, group, whoAp *string
-
-			item := whoItem.GetItem()
-			switch benificiaryItem := item.Item.(type) {
-			case *raitoType.AccessProviderWhoListItemItemUser:
-				user = benificiaryItem.Email
-			case *raitoType.AccessProviderWhoListItemItemGroup:
-				group = &benificiaryItem.Id
-			case *raitoType.AccessProviderWhoListItemItemAccessProvider:
-				whoAp = &benificiaryItem.Id
-			default:
-				response.Diagnostics.AddError("Invalid who-item", fmt.Sprintf("Invalid who-item: %T", benificiaryItem))
-
-				return
-			}
-
-			if item.Type == raitoType.AccessWhoItemTypeWhogrant {
-				if (user != nil && definedPromises.Contains(_userPrefix(*user))) || (group != nil && definedPromises.Contains(_groupPrefix(*group))) || (whoAp != nil && definedPromises.Contains(_accessControlPrefix(*whoAp))) {
-					continue
-				}
-			} else if item.PromiseDuration == nil {
-				response.Diagnostics.AddError("Invalid who-item detected.", "Invalid who-item. Promise duration not set on promise who-item")
-			}
-
-			stateWhoItems = append(stateWhoItems, types.ObjectValueMust(
-				map[string]attr.Type{
-					"user":             types.StringType,
-					"group":            types.StringType,
-					"access_control":   types.StringType,
-					"promise_duration": types.Int64Type,
-				}, map[string]attr.Value{
-					"user":             types.StringPointerValue(user),
-					"group":            types.StringPointerValue(group),
-					"access_control":   types.StringPointerValue(whoAp),
-					"promise_duration": types.Int64PointerValue(item.PromiseDuration),
-				}))
+		stateWhoItems, done := a.readWhoItems(ctx, apModel, response, definedPromises, stateWhoItems)
+		if done {
+			return
 		}
 
 		who, whoDiag := types.SetValue(types.ObjectType{
@@ -389,7 +348,60 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 	}
 
 	// Set new state of the access provider
-	response.State.Set(ctx, data)
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+}
+
+func (a *AccessProviderResource[T, ApModel]) readWhoItems(ctx context.Context, apModel *AccessProviderResourceModel, response *resource.ReadResponse, definedPromises set.Set[string], stateWhoItems []attr.Value) ([]attr.Value, bool) {
+	// Get all who-items. Ignore implemented promises.
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
+
+	whoItems := a.client.AccessProvider().GetAccessProviderWhoList(cancelCtx, apModel.Id.ValueString())
+	for whoItem := range whoItems {
+		if whoItem.HasError() {
+			response.Diagnostics.AddError("Failed to read who-item from access provider", whoItem.GetError().Error())
+
+			return nil, true
+		}
+
+		var user, group, whoAp *string
+
+		item := whoItem.GetItem()
+		switch benificiaryItem := item.Item.(type) {
+		case *raitoType.AccessProviderWhoListItemItemUser:
+			user = benificiaryItem.Email
+		case *raitoType.AccessProviderWhoListItemItemGroup:
+			group = &benificiaryItem.Id
+		case *raitoType.AccessProviderWhoListItemItemAccessProvider:
+			whoAp = &benificiaryItem.Id
+		default:
+			response.Diagnostics.AddError("Invalid who-item", fmt.Sprintf("Invalid who-item: %T", benificiaryItem))
+
+			return nil, true
+		}
+
+		if item.Type == raitoType.AccessWhoItemTypeWhogrant {
+			if (user != nil && definedPromises.Contains(_userPrefix(*user))) || (group != nil && definedPromises.Contains(_groupPrefix(*group))) || (whoAp != nil && definedPromises.Contains(_accessControlPrefix(*whoAp))) {
+				continue
+			}
+		} else if item.PromiseDuration == nil {
+			response.Diagnostics.AddError("Invalid who-item detected.", "Invalid who-item. Promise duration not set on promise who-item")
+		}
+
+		stateWhoItems = append(stateWhoItems, types.ObjectValueMust(
+			map[string]attr.Type{
+				"user":             types.StringType,
+				"group":            types.StringType,
+				"access_control":   types.StringType,
+				"promise_duration": types.Int64Type,
+			}, map[string]attr.Value{
+				"user":             types.StringPointerValue(user),
+				"group":            types.StringPointerValue(group),
+				"access_control":   types.StringPointerValue(whoAp),
+				"promise_duration": types.Int64PointerValue(item.PromiseDuration),
+			}))
+	}
+	return stateWhoItems, false
 }
 
 func (a *AccessProviderResource[T, ApModel]) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
@@ -433,12 +445,47 @@ func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data Ap
 		}
 	}
 
-	whoItemChannel := a.client.AccessProvider().GetAccessProviderWhoList(ctx, id)
+	if a.updateGetWhoItems(ctx, id, response, definedPromises, input) {
+		return
+	}
+
+	// Update access provider
+	ap, err := a.client.AccessProvider().UpdateAccessProvider(ctx, id, input, services.WithAccessProviderOverrideLocks())
+	if err != nil {
+		response.Diagnostics.AddError("Failed to update access provider", err.Error())
+
+		return
+	}
+
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	ap, diagnostics := a.updateState(ctx, data, state, ap)
+
+	response.Diagnostics.Append(diagnostics...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+}
+
+func (a *AccessProviderResource[T, ApModel]) updateGetWhoItems(ctx context.Context, id string, response *resource.UpdateResponse, definedPromises set.Set[string], input raitoType.AccessProviderInput) bool {
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
+
+	whoItemChannel := a.client.AccessProvider().GetAccessProviderWhoList(cancelCtx, id)
 	for whoItem := range whoItemChannel {
 		if whoItem.HasError() {
 			response.Diagnostics.AddError("Failed to read who-item from access provider", whoItem.GetError().Error())
 
-			return
+			return true
 		}
 
 		item := whoItem.GetItem()
@@ -477,32 +524,7 @@ func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data Ap
 			}
 		}
 	}
-
-	// Update access provider
-	ap, err := a.client.AccessProvider().UpdateAccessProvider(ctx, id, input)
-	if err != nil {
-		response.Diagnostics.AddError("Failed to update access provider", err.Error())
-
-		return
-	}
-
-	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
-	response.Diagnostics.Append(response.State.Set(ctx, data)...)
-
-	if response.Diagnostics.HasError() {
-		return
-	}
-
-	ap, diagnostics := a.updateState(ctx, data, state, ap)
-
-	response.Diagnostics.Append(diagnostics...)
-
-	if response.Diagnostics.HasError() {
-		return
-	}
-
-	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
-	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+	return false
 }
 
 func (a *AccessProviderResource[T, ApModel]) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {

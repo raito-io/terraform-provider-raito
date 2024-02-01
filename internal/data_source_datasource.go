@@ -113,7 +113,11 @@ func (d *DataSourceDataSource) Read(ctx context.Context, request datasource.Read
 	}
 
 	name := data.Name.ValueString()
-	dsChan := d.client.DataSource().ListDataSources(ctx, services.WithDataSourceListSearch(&name))
+
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	dsChan := d.client.DataSource().ListDataSources(cancelCtx, services.WithDataSourceListSearch(&name))
 
 	for ds := range dsChan {
 		if ds.HasError() {
@@ -125,7 +129,7 @@ func (d *DataSourceDataSource) Read(ctx context.Context, request datasource.Read
 		dsItem := ds.GetItem()
 
 		if dsItem.Name == name {
-			identityStores, err := d.client.DataSource().ListIdentityStores(ctx, dsItem.Id)
+			identityStores, err := d.client.DataSource().ListIdentityStores(cancelCtx, dsItem.Id)
 			if err != nil {
 				response.Diagnostics.AddError("Failed to list identity stores", err.Error())
 
@@ -158,7 +162,7 @@ func (d *DataSourceDataSource) Read(ctx context.Context, request datasource.Read
 			data.NativeIdentityStore = types.StringPointerValue(nativeIs)
 			data.IdentityStores = isAttr
 
-			response.State.Set(ctx, data)
+			response.Diagnostics.Append(response.State.Set(ctx, data)...)
 		}
 	}
 }

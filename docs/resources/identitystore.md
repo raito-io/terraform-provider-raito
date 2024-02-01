@@ -30,7 +30,7 @@ resource "raito_identitystore" "example" {
 ### Optional
 
 - `description` (String) The description of the identity store
-- `master` (Boolean) `True`, if this is a master identity store
+- `master` (Boolean) `True`, if this is a master identity store. Default: `false`
 
 ### Read-Only
 

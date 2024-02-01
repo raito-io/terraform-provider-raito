@@ -4,4 +4,5 @@ resource "raito_user" "u1" {
   raito_user = true
   type       = "Machine"
   password   = "!23vV678"
+  roles      = ["Admin", "Integrator"]
 }

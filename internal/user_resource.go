@@ -6,22 +6,29 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/aws/smithy-go/ptr"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/sdk"
+	"github.com/raito-io/sdk/services"
 	raitoTypes "github.com/raito-io/sdk/types"
 
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )
 
 var _ resource.Resource = (*UserResource)(nil)
+
+const roleIdSuffix = "Role"
 
 type UserResourceModel struct {
 	Id        types.String `tfsdk:"id"`
@@ -30,6 +37,7 @@ type UserResourceModel struct {
 	Type      types.String `tfsdk:"type"`
 	Password  types.String `tfsdk:"password"`
 	RaitoUser types.Bool   `tfsdk:"raito_user"`
+	Roles     types.Set    `tfsdk:"roles"`
 }
 
 func (m *UserResourceModel) ToUserInput() raitoTypes.UserInput {
@@ -38,6 +46,18 @@ func (m *UserResourceModel) ToUserInput() raitoTypes.UserInput {
 		Email: m.Email.ValueStringPointer(),
 		Type:  (*raitoTypes.UserType)(m.Type.ValueStringPointer()),
 	}
+}
+
+func (m *UserResourceModel) GetRoleIds() []string {
+	elements := m.Roles.Elements()
+
+	result := make([]string, len(elements))
+
+	for i, element := range elements {
+		result[i] = element.(types.String).ValueString() + roleIdSuffix
+	}
+
+	return result
 }
 
 type UserResource struct {
@@ -125,6 +145,21 @@ func (u *UserResource) Schema(ctx context.Context, request resource.SchemaReques
 				MarkdownDescription: "Indicates if a user is a Raito User",
 				Default:             booldefault.StaticBool(true),
 			},
+			"roles": schema.SetAttribute{
+				ElementType:         types.StringType,
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+				Sensitive:           false,
+				Description:         "User global roles",
+				MarkdownDescription: "User global roles",
+				Validators: []validator.Set{
+					setvalidator.ValueStringsAre(
+						stringvalidator.OneOf("Admin", "Creator", "Observer", "Integrator", "AccessCreator"),
+					),
+				},
+				Default: setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+			},
 		},
 		Description:         "User resource",
 		MarkdownDescription: "User resource",
@@ -172,6 +207,13 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 			return
 		}
 	}
+
+	err = u.client.Role().SetGlobalRoleForUsers(ctx, user.Id, data.GetRoleIds()...)
+	if err != nil {
+		response.Diagnostics.AddError("Failed to set global roles for user", err.Error())
+
+		return
+	}
 }
 
 func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
@@ -196,6 +238,35 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		return
 	}
 
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	roles := u.client.Role().ListRoleAssignmentsOnUser(cancelCtx, user.Id, services.WithRoleAssignmentListFilter(&raitoTypes.RoleAssignmentFilterInput{
+		OnlyGlobal: ptr.Bool(true),
+	}))
+
+	var actualRoles []types.String
+
+	for role := range roles {
+		if role.HasError() {
+			response.Diagnostics.AddError("Failed to list roles for user", role.GetError().Error())
+
+			return
+		}
+
+		roleId := role.GetItem().GetId()
+		roleName := roleId[:len(roleId)-len(roleIdSuffix)] // Cut off "Role" suffix
+		actualRoles = append(actualRoles, types.StringValue(roleName))
+	}
+
+	rolesSet, rolesDiagnostics := types.SetValueFrom(ctx, types.StringType, actualRoles)
+
+	response.Diagnostics.Append(rolesDiagnostics...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
 	actualData := UserResourceModel{
 		Id:        types.StringValue(user.Id),
 		Name:      types.StringValue(user.Name),
@@ -203,6 +274,7 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		Type:      types.StringValue(string(user.Type)),
 		Password:  stateData.Password,
 		RaitoUser: types.BoolValue(user.IsRaitoUser),
+		Roles:     rolesSet,
 	}
 
 	response.Diagnostics.Append(response.State.Set(ctx, &actualData)...)
@@ -256,6 +328,13 @@ func (u *UserResource) Update(ctx context.Context, request resource.UpdateReques
 
 			return
 		}
+	}
+
+	err = u.client.Role().SetGlobalRoleForUsers(ctx, user.Id, planData.GetRoleIds()...)
+	if err != nil {
+		response.Diagnostics.AddError("Failed to set global roles for user", err.Error())
+
+		return
 	}
 
 	planData.RaitoUser = types.BoolValue(user.IsRaitoUser)

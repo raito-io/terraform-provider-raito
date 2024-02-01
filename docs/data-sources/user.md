@@ -30,4 +30,5 @@ data "raito_user" "example" {
 - `id` (String) The ID of the requested user
 - `name` (String) The name of the requested user
 - `raito_user` (Boolean) Whether the requested user is a Raito user
+- `roles` (Set of String) User global roles
 - `type` (String) The type of the requested user (Human or Machine)

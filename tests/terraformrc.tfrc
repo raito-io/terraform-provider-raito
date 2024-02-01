@@ -1,5 +1,0 @@
-provider_installation {
-    dev_overrides {
-        "hashicorp/raito" = "/Users/rubenmennes/git/raito/terraform-provider-raito"
-    }
-}

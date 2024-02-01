@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/smithy-go/ptr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/sdk"
+	"github.com/raito-io/sdk/services"
+	raitoTypes "github.com/raito-io/sdk/types"
 )
 
 var _ datasource.DataSource = (*UserDataSource)(nil)
@@ -18,6 +21,7 @@ type UserDataSourceModel struct {
 	Email     types.String `tfsdk:"email"`
 	Type      types.String `tfsdk:"type"`
 	RaitoUser types.Bool   `tfsdk:"raito_user"`
+	Roles     types.Set    `tfsdk:"roles"`
 }
 
 type UserDataSource struct {
@@ -75,6 +79,15 @@ func (u *UserDataSource) Schema(ctx context.Context, request datasource.SchemaRe
 				Description:         "Whether the requested user is a Raito user",
 				MarkdownDescription: "Whether the requested user is a Raito user",
 			},
+			"roles": schema.SetAttribute{
+				ElementType:         types.StringType,
+				Required:            false,
+				Optional:            false,
+				Computed:            true,
+				Sensitive:           false,
+				Description:         "User global roles",
+				MarkdownDescription: "User global roles",
+			},
 		},
 		Description:         "Find a user by email address",
 		MarkdownDescription: "Find a user by email address",
@@ -101,6 +114,37 @@ func (u *UserDataSource) Read(ctx context.Context, request datasource.ReadReques
 	data.Name = types.StringValue(user.Name)
 	data.Type = types.StringValue(string(user.Type))
 	data.RaitoUser = types.BoolValue(user.IsRaitoUser)
+
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	roles := u.client.Role().ListRoleAssignmentsOnUser(cancelCtx, user.Id, services.WithRoleAssignmentListFilter(&raitoTypes.RoleAssignmentFilterInput{
+		OnlyGlobal: ptr.Bool(true),
+	}))
+
+	var actualRoles []types.String
+
+	for role := range roles {
+		if role.HasError() {
+			response.Diagnostics.AddError("Failed to get roles", role.GetError().Error())
+
+			return
+		}
+
+		roleId := role.GetItem().GetId()
+		roleName := roleId[:len(roleId)-len(roleIdSuffix)] // Cut off "Role" suffix
+		actualRoles = append(actualRoles, types.StringValue(roleName))
+	}
+
+	rolesSet, rolesDiagnostics := types.SetValueFrom(ctx, types.StringType, actualRoles)
+
+	response.Diagnostics.Append(rolesDiagnostics...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	data.Roles = rolesSet
 
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }

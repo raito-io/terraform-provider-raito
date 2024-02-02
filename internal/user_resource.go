@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -208,11 +209,13 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 		}
 	}
 
-	err = u.client.Role().SetGlobalRoleForUsers(ctx, user.Id, data.GetRoleIds()...)
-	if err != nil {
-		response.Diagnostics.AddError("Failed to set global roles for user", err.Error())
+	if user.IsRaitoUser {
+		err = u.client.Role().SetGlobalRoleForUsers(ctx, user.Id, data.GetRoleIds()...)
+		if err != nil {
+			response.Diagnostics.AddError("Failed to set global roles for user", err.Error())
 
-		return
+			return
+		}
 	}
 }
 
@@ -238,6 +241,8 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		return
 	}
 
+	rolesSet := types.SetNull(types.StringType)
+
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
 
@@ -245,7 +250,7 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		OnlyGlobal: ptr.Bool(true),
 	}))
 
-	var actualRoles []types.String
+	actualRoles := make([]types.String, 0)
 
 	for role := range roles {
 		if role.HasError() {
@@ -259,7 +264,9 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		actualRoles = append(actualRoles, types.StringValue(roleName))
 	}
 
-	rolesSet, rolesDiagnostics := types.SetValueFrom(ctx, types.StringType, actualRoles)
+	var rolesDiagnostics diag.Diagnostics
+
+	rolesSet, rolesDiagnostics = types.SetValueFrom(ctx, types.StringType, actualRoles)
 
 	response.Diagnostics.Append(rolesDiagnostics...)
 
@@ -330,11 +337,13 @@ func (u *UserResource) Update(ctx context.Context, request resource.UpdateReques
 		}
 	}
 
-	err = u.client.Role().SetGlobalRoleForUsers(ctx, user.Id, planData.GetRoleIds()...)
-	if err != nil {
-		response.Diagnostics.AddError("Failed to set global roles for user", err.Error())
+	if user.IsRaitoUser {
+		err = u.client.Role().SetGlobalRoleForUsers(ctx, user.Id, planData.GetRoleIds()...)
+		if err != nil {
+			response.Diagnostics.AddError("Failed to set global roles for user", err.Error())
 
-		return
+			return
+		}
 	}
 
 	planData.RaitoUser = types.BoolValue(user.IsRaitoUser)
@@ -424,7 +433,13 @@ func (u *UserResource) ValidateConfig(ctx context.Context, request resource.Vali
 		return
 	}
 
-	if !data.Password.IsNull() && !data.RaitoUser.IsNull() && !data.RaitoUser.ValueBool() {
+	isRaitoUser := data.RaitoUser.IsNull() || data.RaitoUser.ValueBool()
+
+	if !data.Password.IsNull() && !isRaitoUser {
 		response.Diagnostics.AddError("Password cannot be set if the user is not a Raito user", "Password cannot be set if the user is not a Raito user")
+	}
+
+	if len(data.Roles.Elements()) > 0 && !isRaitoUser {
+		response.Diagnostics.AddError("Roles cannot be set if the user is not a Raito user", "Roles cannot be set if the user is not a Raito user")
 	}
 }

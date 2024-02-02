@@ -27,6 +27,7 @@ type MaskResourceModel struct {
 	Description types.String `tfsdk:"description"`
 	State       types.String `tfsdk:"state"`
 	Who         types.Set    `tfsdk:"who"`
+	Owners      types.Set    `tfsdk:"owners"`
 
 	// MaskResourceModel properties.
 	Type       types.String `tfsdk:"type"`
@@ -41,6 +42,7 @@ func (m *MaskResourceModel) GetAccessProviderResourceModel() *AccessProviderReso
 		Description: m.Description,
 		State:       m.State,
 		Who:         m.Who,
+		Owners:      m.Owners,
 	}
 }
 
@@ -50,6 +52,7 @@ func (m *MaskResourceModel) SetAccessProviderResourceModel(ap *AccessProviderRes
 	m.Description = ap.Description
 	m.State = ap.State
 	m.Who = ap.Who
+	m.Owners = ap.Owners
 }
 
 func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {
@@ -122,6 +125,10 @@ func (m *MaskResourceModel) FromAccessProvider(ctx context.Context, client *sdk.
 	}
 
 	return diagnostics
+}
+
+func (m *MaskResourceModel) UpdateOwners(owners types.Set) {
+	m.Owners = owners
 }
 
 type MaskResource struct {

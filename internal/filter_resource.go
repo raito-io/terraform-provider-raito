@@ -26,6 +26,7 @@ type FilterResourceModel struct {
 	Description types.String `tfsdk:"description"`
 	State       types.String `tfsdk:"state"`
 	Who         types.Set    `tfsdk:"who"`
+	Owners      types.Set    `tfsdk:"owners"`
 
 	// FilterResourceModel properties
 	DataSource   types.String `tfsdk:"data_source"`
@@ -40,6 +41,7 @@ func (f *FilterResourceModel) GetAccessProviderResourceModel() *AccessProviderRe
 		Description: f.Description,
 		State:       f.State,
 		Who:         f.Who,
+		Owners:      f.Owners,
 	}
 }
 
@@ -49,6 +51,7 @@ func (f *FilterResourceModel) SetAccessProviderResourceModel(ap *AccessProviderR
 	f.Description = ap.Description
 	f.State = ap.State
 	f.Who = ap.Who
+	f.Owners = ap.Owners
 }
 
 func (f *FilterResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {
@@ -98,6 +101,10 @@ func (f *FilterResourceModel) FromAccessProvider(ctx context.Context, client *sd
 	f.FilterPolicy = types.StringPointerValue(input.PolicyRule)
 
 	return diagnostics
+}
+
+func (f *FilterResourceModel) UpdateOwners(owners types.Set) {
+	f.Owners = owners
 }
 
 type FilterResource struct {

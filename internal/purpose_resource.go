@@ -25,6 +25,7 @@ type PurposeResourceModel struct {
 	Description types.String `tfsdk:"description"`
 	State       types.String `tfsdk:"state"`
 	Who         types.Set    `tfsdk:"who"`
+	Owners      types.Set    `tfsdk:"owners"`
 
 	// PurposeResourceModel properties.
 	Type types.String `tfsdk:"type"`
@@ -37,6 +38,7 @@ func (p *PurposeResourceModel) GetAccessProviderResourceModel() *AccessProviderR
 		Description: p.Description,
 		State:       p.State,
 		Who:         p.Who,
+		Owners:      p.Owners,
 	}
 }
 
@@ -46,6 +48,7 @@ func (p *PurposeResourceModel) SetAccessProviderResourceModel(model *AccessProvi
 	p.Description = model.Description
 	p.State = model.State
 	p.Who = model.Who
+	p.Owners = model.Owners
 }
 
 func (p *PurposeResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {
@@ -73,6 +76,10 @@ func (p *PurposeResourceModel) FromAccessProvider(_ context.Context, _ *sdk.Rait
 	p.Type = types.StringPointerValue(input.Type)
 
 	return diagnostics
+}
+
+func (p *PurposeResourceModel) UpdateOwners(owners types.Set) {
+	p.Owners = owners
 }
 
 type PurposeResource struct {

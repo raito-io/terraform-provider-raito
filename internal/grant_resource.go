@@ -31,6 +31,7 @@ type GrantResourceModel struct {
 	Description types.String `tfsdk:"description"`
 	State       types.String `tfsdk:"state"`
 	Who         types.Set    `tfsdk:"who"`
+	Owners      types.Set    `tfsdk:"owners"`
 
 	// GrantResourceModel properties.
 	Type            types.String `tfsdk:"type"`
@@ -45,6 +46,7 @@ func (m *GrantResourceModel) GetAccessProviderResourceModel() *AccessProviderRes
 		Description: m.Description,
 		State:       m.State,
 		Who:         m.Who,
+		Owners:      m.Owners,
 	}
 }
 
@@ -54,6 +56,7 @@ func (m *GrantResourceModel) SetAccessProviderResourceModel(ap *AccessProviderRe
 	m.Description = ap.Description
 	m.State = ap.State
 	m.Who = ap.Who
+	m.Owners = ap.Owners
 }
 
 func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {
@@ -137,6 +140,10 @@ func (m *GrantResourceModel) FromAccessProvider(_ context.Context, _ *sdk.RaitoC
 	m.DataSource = types.StringValue(ap.DataSources[0].Id)
 
 	return diagnostics
+}
+
+func (m *GrantResourceModel) UpdateOwners(owners types.Set) {
+	m.Owners = owners
 }
 
 type GrantResource struct {

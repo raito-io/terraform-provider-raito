@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/aws/smithy-go/ptr"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -17,7 +19,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/raito-io/golang-set/set"
 	"github.com/raito-io/sdk"
@@ -28,12 +32,16 @@ import (
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )
 
+const ownerRole = "OwnerRole"
+
 type AccessProviderResourceModel struct {
 	Id          types.String
 	Name        types.String
 	Description types.String
 	State       types.String
 	Who         types.Set
+
+	Owners types.Set
 }
 
 type AccessProviderModel[T any] interface {
@@ -42,6 +50,7 @@ type AccessProviderModel[T any] interface {
 	SetAccessProviderResourceModel(model *AccessProviderResourceModel)
 	ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics
 	FromAccessProvider(ctx context.Context, client *sdk.RaitoClient, input *raitoType.AccessProvider) diag.Diagnostics
+	UpdateOwners(owners types.Set)
 }
 
 type ReadHook[T any, ApModel AccessProviderModel[T]] func(ctx context.Context, client *sdk.RaitoClient, data ApModel) diag.Diagnostics
@@ -156,6 +165,21 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Description:         fmt.Sprintf("The who-items associated with the %s", typeName),
 			MarkdownDescription: fmt.Sprintf("The who-items associated with the %s. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud.", typeName),
 		},
+		"owners": schema.SetAttribute{
+			ElementType:         types.StringType,
+			Required:            false,
+			Optional:            true,
+			Computed:            true,
+			Sensitive:           false,
+			Description:         fmt.Sprintf("User id of the owners of this %s", typeName),
+			MarkdownDescription: fmt.Sprintf("User id of the owners of this %s", typeName),
+			Validators: []validator.Set{
+				setvalidator.ValueStringsAre(
+					stringvalidator.LengthAtLeast(3),
+				),
+			},
+			Default: nil,
+		},
 	}
 
 	return defaultSchema
@@ -175,7 +199,11 @@ func (a *AccessProviderResource[T, ApModel]) Create(ctx context.Context, request
 
 func (a *AccessProviderResource[T, ApModel]) create(ctx context.Context, data ApModel, response *resource.CreateResponse) {
 	input := raitoType.AccessProviderInput{}
-	state := data.GetAccessProviderResourceModel().State
+
+	apResourceModel := data.GetAccessProviderResourceModel()
+
+	state := apResourceModel.State
+	owners := apResourceModel.Owners
 
 	response.Diagnostics.Append(data.ToAccessProviderInput(ctx, a.client, &input)...)
 
@@ -216,6 +244,42 @@ func (a *AccessProviderResource[T, ApModel]) create(ctx context.Context, data Ap
 
 	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	response.Diagnostics.Append(a.createUpdateOwners(ctx, data, owners, ap, &response.State)...)
+}
+
+func (a *AccessProviderResource[T, ApModel]) createUpdateOwners(ctx context.Context, data ApModel, owners types.Set, ap *raitoType.AccessProvider, state *tfsdk.State) (diagnostics diag.Diagnostics) {
+	if !owners.IsNull() && !owners.IsUnknown() {
+		ownerElements := owners.Elements()
+
+		ownerIds := make([]string, len(ownerElements))
+		for i, ownerElement := range ownerElements {
+			ownerIds[i] = ownerElement.(types.String).ValueString()
+		}
+
+		_, err := a.client.Role().UpdateRoleAssigneesOnAccessProvider(ctx, ap.Id, ownerRole, ownerIds...)
+		if err != nil {
+			diagnostics.AddError("Failed to update owners of access provider", err.Error())
+
+			return diagnostics
+		}
+	} else {
+		ownerSet, ownerDiagnostics := a.readOwners(ctx, ap.Id)
+		diagnostics.Append(ownerDiagnostics...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+
+		data.UpdateOwners(ownerSet)
+		diagnostics.Append(state.Set(ctx, data)...)
+	}
+
+	return diagnostics
 }
 
 func (a *AccessProviderResource[T, ApModel]) updateState(ctx context.Context, data ApModel, state types.String, ap *raitoType.AccessProvider) (_ *raitoType.AccessProvider, diagnostics diag.Diagnostics) {
@@ -338,6 +402,16 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 	// Set all global access provider attributes
 	data.SetAccessProviderResourceModel(apModel)
 
+	// Read owners
+	ownersSet, ownerDiagnostics := a.readOwners(ctx, apModel.Id.ValueString())
+	response.Diagnostics.Append(ownerDiagnostics...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	data.UpdateOwners(ownersSet)
+
 	// Execute action specific hooks
 	for _, hook := range hooks {
 		response.Diagnostics.Append(hook(ctx, a.client, data)...)
@@ -423,6 +497,7 @@ func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data Ap
 
 	id := apResourceModel.Id.ValueString()
 	state := apResourceModel.State
+	owners := apResourceModel.Owners
 
 	response.Diagnostics.Append(data.ToAccessProviderInput(ctx, a.client, &input)...)
 
@@ -474,6 +549,13 @@ func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data Ap
 
 	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	// Update owners
+	response.Diagnostics.Append(a.createUpdateOwners(ctx, data, owners, ap, &response.State)...)
 }
 
 func (a *AccessProviderResource[T, ApModel]) updateGetWhoItems(ctx context.Context, id string, response *resource.UpdateResponse, definedPromises set.Set[string], input raitoType.AccessProviderInput) bool {
@@ -623,6 +705,45 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 			}
 		}
 	}
+}
+
+func (a *AccessProviderResource[T, ApModel]) readOwners(ctx context.Context, apId string) (_ types.Set, diagnostics diag.Diagnostics) {
+	cancelCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	roleAssignments := a.client.Role().ListRoleAssignmentsOnAccessProvider(cancelCtx, apId, services.WithRoleAssignmentListFilter(&raitoType.RoleAssignmentFilterInput{
+		Role: ptr.String(ownerRole),
+	}))
+
+	var ownerIds []attr.Value
+
+	for roleAssignment := range roleAssignments {
+		if roleAssignment.HasError() {
+			diagnostics.AddError("Failed to list role assignments on access provider", roleAssignment.GetError().Error())
+
+			return basetypes.SetValue{}, diagnostics
+		}
+
+		switch to := roleAssignment.GetItem().To.(type) {
+		case *raitoType.RoleAssignmentToUser:
+			ownerIds = append(ownerIds, types.StringValue(to.Id))
+		case *raitoType.RoleAssignmentToGroup:
+			ownerIds = append(ownerIds, types.StringValue(to.Id))
+		default:
+			diagnostics.AddError("Unexpected role assignment type", fmt.Sprintf("Unexpected role assignment type %T", to))
+
+			return basetypes.SetValue{}, diagnostics
+		}
+	}
+
+	ownerSet, diagOwners := types.SetValue(types.StringType, ownerIds)
+	diagnostics.Append(diagOwners...)
+
+	if diagnostics.HasError() {
+		return basetypes.SetValue{}, diagnostics
+	}
+
+	return ownerSet, diagnostics
 }
 
 func (a *AccessProviderResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {

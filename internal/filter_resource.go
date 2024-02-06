@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -21,12 +22,13 @@ var _ resource.Resource = (*FilterResource)(nil)
 
 type FilterResourceModel struct {
 	// AccessProviderResourceModel properties. This has to be duplicated because of https://github.com/hashicorp/terraform-plugin-framework/issues/242
-	Id          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	State       types.String `tfsdk:"state"`
-	Who         types.Set    `tfsdk:"who"`
-	Owners      types.Set    `tfsdk:"owners"`
+	Id          types.String         `tfsdk:"id"`
+	Name        types.String         `tfsdk:"name"`
+	Description types.String         `tfsdk:"description"`
+	State       types.String         `tfsdk:"state"`
+	Who         types.Set            `tfsdk:"who"`
+	Owners      types.Set            `tfsdk:"owners"`
+	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
 
 	// FilterResourceModel properties
 	DataSource   types.String `tfsdk:"data_source"`
@@ -42,6 +44,7 @@ func (f *FilterResourceModel) GetAccessProviderResourceModel() *AccessProviderRe
 		State:       f.State,
 		Who:         f.Who,
 		Owners:      f.Owners,
+		WhoAbacRule: f.WhoAbacRule,
 	}
 }
 
@@ -52,6 +55,7 @@ func (f *FilterResourceModel) SetAccessProviderResourceModel(ap *AccessProviderR
 	f.State = ap.State
 	f.Who = ap.Who
 	f.Owners = ap.Owners
+	f.WhoAbacRule = ap.WhoAbacRule
 }
 
 func (f *FilterResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {

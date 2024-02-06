@@ -255,7 +255,7 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 			return
 		}
 
-		roleId := role.GetItem().GetId()
+		roleId := role.GetItem().GetRole().Id
 		roleName := roleId[:len(roleId)-len(roleIdSuffix)] // Cut off "Role" suffix
 		actualRoles = append(actualRoles, types.StringValue(roleName))
 	}

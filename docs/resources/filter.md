@@ -66,6 +66,7 @@ resource "raito_filter" "filter1" {
 - `state` (String) The state of the filter Possible values are: ["Active", "Inactive"]
 - `table` (String) The full name of the table that should be filtered
 - `who` (Attributes Set) The who-items associated with the filter. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
+- `who_abac_rule` (String) json representation of the abac rule for who-items associated with the filter
 
 ### Read-Only
 

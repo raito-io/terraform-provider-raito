@@ -10,7 +10,7 @@ import (
 )
 
 func TestAccUserResource(t *testing.T) {
-	testId := gonanoid.Must(8)
+	testId := gonanoid.MustGenerate("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8)
 
 	t.Run("start with non-raito user", func(t *testing.T) {
 		resource.Test(t, resource.TestCase{
@@ -54,7 +54,6 @@ resource "raito_user" "u1" {
 	email = "test-user-%[1]s@raito.io"
 	raito_user = false
 	type = "Machine"
-	roles = ["Admin"]
 }
 `, testId),
 					Check: resource.ComposeAggregateTestCheckFunc(
@@ -63,8 +62,7 @@ resource "raito_user" "u1" {
 						resource.TestCheckResourceAttr("raito_user.u1", "raito_user", "false"),
 						resource.TestCheckResourceAttr("raito_user.u1", "type", "Machine"),
 						resource.TestCheckNoResourceAttr("raito_user.u1", "password"),
-						resource.TestCheckResourceAttr("raito_user.u1", "roles.#", "1"),
-						resource.TestCheckResourceAttr("raito_user.u1", "roles.0", "Admin"),
+						resource.TestCheckResourceAttr("raito_user.u1", "roles.#", "0"),
 						resource.TestCheckResourceAttrWith("raito_user.u1", "id", func(value string) error {
 							if len(value) == 0 {
 								return fmt.Errorf("ID should not be empty")

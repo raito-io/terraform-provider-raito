@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -28,6 +29,7 @@ import (
 	raitoType "github.com/raito-io/sdk/types"
 	"github.com/raito-io/sdk/types/models"
 
+	"github.com/raito-io/terraform-provider-raito/internal/types/abac_expression"
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )
 
@@ -39,6 +41,7 @@ type AccessProviderResourceModel struct {
 	Description types.String
 	State       types.String
 	Who         types.Set
+	WhoAbacRule jsontypes.Normalized
 
 	Owners types.Set
 }
@@ -165,6 +168,15 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Sensitive:           false,
 			Description:         fmt.Sprintf("The who-items associated with the %s", typeName),
 			MarkdownDescription: fmt.Sprintf("The who-items associated with the %s. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud.", typeName),
+		},
+		"who_abac_rule": schema.StringAttribute{
+			CustomType:          jsontypes.NormalizedType{},
+			Required:            false,
+			Optional:            true,
+			Computed:            false,
+			Sensitive:           false,
+			Description:         fmt.Sprintf("json representation of the abac rule for who-items associated with the %s", typeName),
+			MarkdownDescription: fmt.Sprintf("json representation of the abac rule for who-items associated with the %s", typeName),
 		},
 		"owners": schema.SetAttribute{
 			ElementType:         types.StringType,
@@ -398,6 +410,10 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 		}
 
 		apModel.Who = who
+	}
+
+	if ap.WhoAbacRule != nil {
+		apModel.WhoAbacRule = jsontypes.NewNormalizedPointerValue(ap.WhoAbacRule.RuleJson)
 	}
 
 	// Set all global access provider attributes
@@ -677,9 +693,21 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 
 	apModel := ApModel(&data)
 
-	// For each who-item check if exactly one of user, group or access_control is set.
-	who := &apModel.GetAccessProviderResourceModel().Who
+	apResourceModel := apModel.GetAccessProviderResourceModel()
 
+	who := &apResourceModel.Who
+	whoAbac := &apResourceModel.WhoAbacRule
+
+	if !who.IsNull() && !whoAbac.IsNull() {
+		response.Diagnostics.AddError(
+			"Cannot specify both who and who_abac",
+			"Please specify only one of who or who_abac",
+		)
+
+		return
+	}
+
+	// For each who-item check if exactly one of user, group or access_control is set.
 	if !who.IsNull() {
 		for _, whoItem := range who.Elements() {
 			whoItemAttribute := whoItem.(types.Object)
@@ -757,48 +785,82 @@ func (a *AccessProviderResourceModel) ToAccessProviderInput(ctx context.Context,
 	result.Name = a.Name.ValueStringPointer()
 	result.Description = a.Description.ValueStringPointer()
 
+	result.WhoType = utils.Ptr(raitoType.WhoAndWhatTypeStatic)
+
 	if !a.Who.IsNull() && !a.Who.IsUnknown() {
-		whoItems := a.Who.Elements()
+		diagnostics.Append(a.whoElementsToAccessProviderInput(ctx, client, result)...)
+	} else if !a.WhoAbacRule.IsNull() && !a.WhoAbacRule.IsUnknown() {
+		result.WhoType = utils.Ptr(raitoType.WhoAndWhatTypeDynamic)
+		diagnostics.Append(a.whoAbacRuleToAccessProviderInput(result)...)
+	}
 
-		result.WhoItems = make([]raitoType.WhoItemInput, 0, len(whoItems))
+	return diagnostics
+}
 
-		for _, whoItem := range whoItems {
-			whoObject := whoItem.(types.Object)
-			whoAttributes := whoObject.Attributes()
+func (a *AccessProviderResourceModel) whoElementsToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
+	whoItems := a.Who.Elements()
 
-			raitoWhoItem := raitoType.WhoItemInput{
-				Type: utils.Ptr(raitoType.AccessWhoItemTypeWhogrant),
-			}
+	result.WhoItems = make([]raitoType.WhoItemInput, 0, len(whoItems))
 
-			if promiseDurationAttribute, found := whoAttributes["promise_duration"]; found && !promiseDurationAttribute.IsNull() {
-				promiseDurationInt := promiseDurationAttribute.(types.Int64)
-				raitoWhoItem.PromiseDuration = promiseDurationInt.ValueInt64Pointer()
-				raitoWhoItem.Type = utils.Ptr(raitoType.AccessWhoItemTypeWhopromise)
-			}
+	for _, whoItem := range whoItems {
+		whoObject := whoItem.(types.Object)
+		whoAttributes := whoObject.Attributes()
 
-			if userAttribute, found := whoAttributes["user"]; found && !userAttribute.IsNull() {
-				userString := userAttribute.(types.String)
+		raitoWhoItem := raitoType.WhoItemInput{
+			Type: utils.Ptr(raitoType.AccessWhoItemTypeWhogrant),
+		}
 
-				userInformation, err := client.User().GetUserByEmail(ctx, userString.ValueString())
-				if err != nil {
-					diagnostics.AddError("Failed to get user", err.Error())
+		if promiseDurationAttribute, found := whoAttributes["promise_duration"]; found && !promiseDurationAttribute.IsNull() {
+			promiseDurationInt := promiseDurationAttribute.(types.Int64)
+			raitoWhoItem.PromiseDuration = promiseDurationInt.ValueInt64Pointer()
+			raitoWhoItem.Type = utils.Ptr(raitoType.AccessWhoItemTypeWhopromise)
+		}
 
-					continue
-				}
+		if userAttribute, found := whoAttributes["user"]; found && !userAttribute.IsNull() {
+			userString := userAttribute.(types.String)
 
-				raitoWhoItem.User = &userInformation.Id
-			} else if groupAttribute, found := whoAttributes["group"]; found && !groupAttribute.IsNull() {
-				raitoWhoItem.Group = groupAttribute.(types.String).ValueStringPointer()
-			} else if accessControlAttribute, found := whoAttributes["access_control"]; found && !accessControlAttribute.IsNull() {
-				raitoWhoItem.AccessProvider = accessControlAttribute.(types.String).ValueStringPointer()
-			} else {
-				diagnostics.AddError("Failed to get who-item", "No user, group, or access control set")
+			userInformation, err := client.User().GetUserByEmail(ctx, userString.ValueString())
+			if err != nil {
+				diagnostics.AddError("Failed to get user", err.Error())
 
 				continue
 			}
 
-			result.WhoItems = append(result.WhoItems, raitoWhoItem)
+			raitoWhoItem.User = &userInformation.Id
+		} else if groupAttribute, found := whoAttributes["group"]; found && !groupAttribute.IsNull() {
+			raitoWhoItem.Group = groupAttribute.(types.String).ValueStringPointer()
+		} else if accessControlAttribute, found := whoAttributes["access_control"]; found && !accessControlAttribute.IsNull() {
+			raitoWhoItem.AccessProvider = accessControlAttribute.(types.String).ValueStringPointer()
+		} else {
+			diagnostics.AddError("Failed to get who-item", "No user, group, or access control set")
+
+			continue
 		}
+
+		result.WhoItems = append(result.WhoItems, raitoWhoItem)
+	}
+
+	return diagnostics
+}
+
+func (a *AccessProviderResourceModel) whoAbacRuleToAccessProviderInput(result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
+	var abacBeRule abac_expression.BinaryExpression
+
+	diagnostics.Append(a.WhoAbacRule.Unmarshal(&abacBeRule)...)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	rule, err := abacBeRule.ToGqlInput()
+	if err != nil {
+		diagnostics.AddError("Failed to convert abac-rule to gql", err.Error())
+
+		return
+	}
+
+	result.WhoAbacRule = &raitoType.WhoAbacRuleInput{
+		Rule: *rule,
 	}
 
 	return diagnostics
@@ -823,4 +885,171 @@ func _groupPrefix(g string) string {
 
 func _accessControlPrefix(a string) string {
 	return "access_control:" + a
+}
+
+type AccessProviderWhatAbacParser struct {
+	ResourceFixedDoType []string
+}
+
+func (p AccessProviderWhatAbacParser) ToAccessProviderInput(ctx context.Context, whatAbacRule types.Object, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
+	attributes := whatAbacRule.Attributes()
+
+	var doTypes []string
+
+	if len(p.ResourceFixedDoType) > 0 {
+		var doDiagnostics diag.Diagnostics
+
+		doTypes, doDiagnostics = utils.StringSetToSlice(ctx, attributes["do_types"].(types.Set))
+		diagnostics.Append(doDiagnostics...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+	} else {
+		doTypes = p.ResourceFixedDoType
+	}
+
+	permissions, permissionDiagnostics := utils.StringSetToSlice(ctx, attributes["permissions"].(types.Set))
+	diagnostics.Append(permissionDiagnostics...)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	globalPermissions, globalPermissionDiagnostics := utils.StringSetToSlice(ctx, attributes["global_permissions"].(types.Set))
+	diagnostics.Append(globalPermissionDiagnostics...)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	scopeAttr := attributes["scope"]
+
+	scope := make([]string, 0)
+
+	if !scopeAttr.IsNull() && !scopeAttr.IsUnknown() {
+		scopeFullnameItems, scopeDiagnostics := utils.StringSetToSlice(ctx, attributes["scope"].(types.Set))
+		diagnostics.Append(scopeDiagnostics...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+
+		for _, scopeFullnameItem := range scopeFullnameItems {
+			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, *result.DataSource)
+			if err != nil {
+				diagnostics.AddError("Failed to get data object id", err.Error())
+
+				return diagnostics
+			}
+
+			scope = append(scope, id)
+		}
+	}
+
+	jsonRule := attributes["rule"].(jsontypes.Normalized)
+
+	var abacRule abac_expression.BinaryExpression
+	diagnostics.Append(jsonRule.Unmarshal(&abacRule)...)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	abacInput, err := abacRule.ToGqlInput()
+	if err != nil {
+		diagnostics.AddError("Failed to convert abac rule to gql input", err.Error())
+
+		return diagnostics
+	}
+
+	result.WhatType = utils.Ptr(raitoType.WhoAndWhatTypeDynamic)
+	result.WhatAbacRule = &raitoType.WhatAbacRuleInput{
+		DoTypes:           doTypes,
+		Permissions:       permissions,
+		GlobalPermissions: globalPermissions,
+		Scope:             scope,
+		Rule:              *abacInput,
+	}
+
+	return diagnostics
+}
+
+func (p AccessProviderWhatAbacParser) ToWhatAbacRuleObject(ctx context.Context, client *sdk.RaitoClient, ap *raitoType.AccessProvider) (_ types.Object, diagnostics diag.Diagnostics) {
+	objectTypes := map[string]attr.Type{
+		"permissions":        types.SetType{ElemType: types.StringType},
+		"global_permissions": types.SetType{ElemType: types.StringType},
+		"scope":              types.SetType{ElemType: types.StringType},
+		"rule":               jsontypes.NormalizedType{},
+	}
+
+	if len(p.ResourceFixedDoType) > 0 {
+		objectTypes["do_types"] = types.SetType{ElemType: types.StringType}
+	}
+
+	permissions, pDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.Permissions)
+	diagnostics.Append(pDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	globalPermissions, gpDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.GlobalPermissions)
+	diagnostics.Append(gpDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	doTypes, dtDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.DoTypes)
+	diagnostics.Append(dtDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	abacRule := jsontypes.NewNormalizedPointerValue(ap.WhatAbacRule.RuleJson)
+
+	var scopeItems []attr.Value
+
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	for scopeItem := range client.AccessProvider().GetAccessProviderAbacWhatScope(cancelCtx, ap.Id) {
+		if scopeItem.HasError() {
+			diagnostics.AddError("Failed to load access provider abac scope", scopeItem.GetError().Error())
+
+			return types.ObjectNull(objectTypes), diagnostics
+		}
+
+		scopeItems = append(scopeItems, types.StringValue(scopeItem.MustGetItem().FullName))
+	}
+
+	objectValue := map[string]attr.Value{
+		"do_types":           doTypes,
+		"permissions":        permissions,
+		"global_permissions": globalPermissions,
+		"rule":               abacRule,
+	}
+
+	if len(p.ResourceFixedDoType) > 0 {
+		scope, scopeDiagnostics := types.SetValue(types.StringType, scopeItems)
+		diagnostics.Append(scopeDiagnostics...)
+
+		if diagnostics.HasError() {
+			return types.ObjectNull(objectTypes), diagnostics
+		}
+
+		objectValue["scope"] = scope
+	}
+
+	object, whatAbacDiagnostics := types.ObjectValue(objectTypes, objectValue)
+
+	diagnostics.Append(whatAbacDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	return object, diagnostics
 }

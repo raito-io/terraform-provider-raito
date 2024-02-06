@@ -76,6 +76,52 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.promise_duration", "604800"),
 					),
 				},
+				{
+					Config: providerConfig + `
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+locals {
+	abac_rule = jsonencode({
+		aggregator: {
+			operator: "Or",
+			operands: [
+				{
+					aggregator: {
+						operator: "And",
+						operands: [
+							{
+								comparison: {
+									operator: "HasTag"
+									leftOperand: "Test"
+									rightOperand: {
+										literal: { string: "test" }
+									}
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	})
+}
+
+resource "raito_purpose" "purpose1" {
+	name = "tfPurpose1-update"
+	description = "updated terraform purpose"
+	state = "Active"
+	who_abac_rule = local.abac_rule
+}
+`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "name", "tfPurpose1-update"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "description", "updated terraform purpose"),
+						resource.TestCheckNoResourceAttr("raito_purpose.purpose1", "who"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
+					),
+				},
 			},
 		})
 	})

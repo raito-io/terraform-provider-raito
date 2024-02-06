@@ -28,12 +28,13 @@ var _ resource.Resource = (*GrantResource)(nil)
 
 type GrantResourceModel struct {
 	// AccessProviderResourceModel properties. This has to be duplicated because of https://github.com/hashicorp/terraform-plugin-framework/issues/242
-	Id          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	State       types.String `tfsdk:"state"`
-	Who         types.Set    `tfsdk:"who"`
-	Owners      types.Set    `tfsdk:"owners"`
+	Id          types.String         `tfsdk:"id"`
+	Name        types.String         `tfsdk:"name"`
+	Description types.String         `tfsdk:"description"`
+	State       types.String         `tfsdk:"state"`
+	Who         types.Set            `tfsdk:"who"`
+	Owners      types.Set            `tfsdk:"owners"`
+	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
 
 	// GrantResourceModel properties.
 	Type            types.String `tfsdk:"type"`
@@ -50,6 +51,7 @@ func (m *GrantResourceModel) GetAccessProviderResourceModel() *AccessProviderRes
 		State:       m.State,
 		Who:         m.Who,
 		Owners:      m.Owners,
+		WhoAbacRule: m.WhoAbacRule,
 	}
 }
 
@@ -60,6 +62,7 @@ func (m *GrantResourceModel) SetAccessProviderResourceModel(ap *AccessProviderRe
 	m.State = ap.State
 	m.Who = ap.Who
 	m.Owners = ap.Owners
+	m.WhoAbacRule = ap.WhoAbacRule
 }
 
 func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {
@@ -84,7 +87,7 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 			return diagnostics
 		}
 	} else if !m.WhatAbacRule.IsNull() {
-		diagnostics.Append(m.whatAbacToApInput(ctx, client, result)...)
+		diagnostics.Append(m.abacWhatToAccessProviderInput(ctx, client, result)...)
 
 		if diagnostics.HasError() {
 			return diagnostics
@@ -137,10 +140,47 @@ func (m *GrantResourceModel) whatDoToApInput(ctx context.Context, client *sdk.Ra
 		})
 	}
 
-	return nil
+	return diagnostics
 }
 
-func (m *GrantResourceModel) whatAbacToApInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
+func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk.RaitoClient, ap *raitoType.AccessProvider) diag.Diagnostics {
+	apResourceModel := m.GetAccessProviderResourceModel()
+	diagnostics := apResourceModel.FromAccessProvider(ap)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	m.SetAccessProviderResourceModel(apResourceModel)
+	m.Type = types.StringPointerValue(ap.Type)
+
+	if len(ap.DataSources) != 1 {
+		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(ap.DataSources)))
+
+		return diagnostics
+	}
+
+	m.DataSource = types.StringValue(ap.DataSources[0].Id)
+
+	if ap.WhatType == raitoType.WhoAndWhatTypeDynamic && ap.WhatAbacRule != nil {
+		object, objectDiagnostics := m.abacWhatFromAccessProvider(ctx, client, ap)
+		diagnostics.Append(objectDiagnostics...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+
+		m.WhatAbacRule = object
+	}
+
+	return diagnostics
+}
+
+func (m *GrantResourceModel) UpdateOwners(owners types.Set) {
+	m.Owners = owners
+}
+
+func (m *GrantResourceModel) abacWhatToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
 	attributes := m.WhatAbacRule.Attributes()
 
 	doTypes, doDiagnostics := utils.StringSetToSlice(ctx, attributes["do_types"].(types.Set))
@@ -213,102 +253,78 @@ func (m *GrantResourceModel) whatAbacToApInput(ctx context.Context, client *sdk.
 		Rule:              *abacInput,
 	}
 
-	return nil
-}
-
-func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk.RaitoClient, ap *raitoType.AccessProvider) diag.Diagnostics {
-	apResourceModel := m.GetAccessProviderResourceModel()
-	diagnostics := apResourceModel.FromAccessProvider(ap)
-
-	if diagnostics.HasError() {
-		return diagnostics
-	}
-
-	m.SetAccessProviderResourceModel(apResourceModel)
-	m.Type = types.StringPointerValue(ap.Type)
-
-	if len(ap.DataSources) != 1 {
-		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(ap.DataSources)))
-
-		return diagnostics
-	}
-
-	m.DataSource = types.StringValue(ap.DataSources[0].Id)
-
-	if ap.WhatType == raitoType.WhoAndWhatTypeDynamic && ap.WhatAbacRule != nil {
-		permissions, pDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.Permissions)
-		diagnostics.Append(pDiagnostics...)
-
-		if diagnostics.HasError() {
-			return diagnostics
-		}
-
-		globalPermissions, gpDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.GlobalPermissions)
-		diagnostics.Append(gpDiagnostics...)
-
-		if diagnostics.HasError() {
-			return diagnostics
-		}
-
-		doTypes, dtDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.DoTypes)
-		diagnostics.Append(dtDiagnostics...)
-
-		if diagnostics.HasError() {
-			return diagnostics
-		}
-
-		abacRule := jsontypes.NewNormalizedPointerValue(ap.WhatAbacRule.RuleJson)
-
-		var scopeItems []attr.Value
-
-		cancelCtx, cancelFunc := context.WithCancel(ctx)
-		defer cancelFunc()
-
-		for scopeItem := range client.AccessProvider().GetAccessProviderAbacWhatScope(cancelCtx, ap.Id) {
-			if scopeItem.HasError() {
-				diagnostics.AddError("Failed to load access provider abac scope", scopeItem.GetError().Error())
-
-				return diagnostics
-			}
-
-			scopeItems = append(scopeItems, types.StringValue(scopeItem.MustGetItem().FullName))
-		}
-
-		scope, scopeDiagnostics := types.SetValue(types.StringType, scopeItems)
-		diagnostics.Append(scopeDiagnostics...)
-
-		if diagnostics.HasError() {
-			return diagnostics
-		}
-
-		object, whatAbacDiagnostics := types.ObjectValue(map[string]attr.Type{
-			"do_types":           types.SetType{ElemType: types.StringType},
-			"permissions":        types.SetType{ElemType: types.StringType},
-			"global_permissions": types.SetType{ElemType: types.StringType},
-			"scope":              types.SetType{ElemType: types.StringType},
-			"rule":               jsontypes.NormalizedType{},
-		}, map[string]attr.Value{
-			"do_types":           doTypes,
-			"permissions":        permissions,
-			"global_permissions": globalPermissions,
-			"scope":              scope,
-			"rule":               abacRule,
-		})
-
-		diagnostics.Append(whatAbacDiagnostics...)
-
-		if diagnostics.HasError() {
-			return diagnostics
-		}
-
-		m.WhatAbacRule = object
-	}
-
 	return diagnostics
 }
 
-func (m *GrantResourceModel) UpdateOwners(owners types.Set) {
-	m.Owners = owners
+func (m *GrantResourceModel) abacWhatFromAccessProvider(ctx context.Context, client *sdk.RaitoClient, ap *raitoType.AccessProvider) (_ types.Object, diagnostics diag.Diagnostics) {
+	objectTypes := map[string]attr.Type{
+		"do_types":           types.SetType{ElemType: types.StringType},
+		"permissions":        types.SetType{ElemType: types.StringType},
+		"global_permissions": types.SetType{ElemType: types.StringType},
+		"scope":              types.SetType{ElemType: types.StringType},
+		"rule":               jsontypes.NormalizedType{},
+	}
+
+	permissions, pDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.Permissions)
+	diagnostics.Append(pDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	globalPermissions, gpDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.GlobalPermissions)
+	diagnostics.Append(gpDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	doTypes, dtDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.DoTypes)
+	diagnostics.Append(dtDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	abacRule := jsontypes.NewNormalizedPointerValue(ap.WhatAbacRule.RuleJson)
+
+	var scopeItems []attr.Value
+
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	for scopeItem := range client.AccessProvider().GetAccessProviderAbacWhatScope(cancelCtx, ap.Id) {
+		if scopeItem.HasError() {
+			diagnostics.AddError("Failed to load access provider abac scope", scopeItem.GetError().Error())
+
+			return types.ObjectNull(objectTypes), diagnostics
+		}
+
+		scopeItems = append(scopeItems, types.StringValue(scopeItem.MustGetItem().FullName))
+	}
+
+	scope, scopeDiagnostics := types.SetValue(types.StringType, scopeItems)
+	diagnostics.Append(scopeDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	object, whatAbacDiagnostics := types.ObjectValue(objectTypes, map[string]attr.Value{
+		"do_types":           doTypes,
+		"permissions":        permissions,
+		"global_permissions": globalPermissions,
+		"rule":               abacRule,
+		"scope":              scope,
+	})
+
+	diagnostics.Append(whatAbacDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	return object, diagnostics
 }
 
 type GrantResource struct {

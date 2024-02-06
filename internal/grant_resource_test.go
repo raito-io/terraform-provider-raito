@@ -201,7 +201,7 @@ resource "raito_grant" "test" {
 		})
 	})
 
-	t.Run("who abac", func(t *testing.T) {
+	t.Run("what abac", func(t *testing.T) {
 		resource.Test(t, resource.TestCase{
 			IsUnitTest: false,
 			PreCheck: func() {
@@ -303,6 +303,81 @@ resource "raito_grant" "abac_grant" {
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.0.user", "terraform@raito.io"),
 					),
+				},
+			},
+		})
+	})
+
+	t.Run("who abac rule", func(t *testing.T) {
+		resource.Test(t, resource.TestCase{
+			IsUnitTest: false,
+			PreCheck: func() {
+				AccProviderPreCheck(t)
+			},
+			TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+				tfversion.SkipBelow(tfversion.Version1_0_0),
+			},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Steps: []resource.TestStep{
+				{
+					Config: providerConfig + `
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+locals {
+	abac_rule = jsonencode({
+		aggregator: {
+			operator: "Or",
+			operands: [
+				{
+					aggregator: {
+						operator: "And",
+						operands: [
+							{
+								comparison: {
+									operator: "HasTag"
+									leftOperand: "Test"
+									rightOperand: {
+										literal: { string: "test" }
+									}
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	})
+}
+
+resource "raito_grant" "who_abac_grant" {
+	name        = "tfTestGrant"
+    description = "test description"
+	data_source = data.raito_datasource.ds.id
+	what_data_objects = [
+		{
+			"fullname": "MASTER_DATA.SALES"
+		}
+	]
+	who_abac_rule = local.abac_rule
+}
+`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "name", "tfTestGrant"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "description", "test description"),
+						resource.TestCheckResourceAttrPair("raito_grant.who_abac_grant", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
+						resource.TestCheckNoResourceAttr("raito_grant.who_abac_grant", "who"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
+					),
+				},
+				{
+					ResourceName:            "raito_grant.who_abac_grant",
+					ImportState:             true,
+					ImportStateVerify:       true,
+					ImportStateVerifyIgnore: []string{"who", "what_data_objects"},
 				},
 			},
 		})

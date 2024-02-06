@@ -174,7 +174,7 @@ func readFilterResourceTable(ctx context.Context, client *sdk.RaitoClient, data 
 
 		for whatItem := range whatItemChannel {
 			if !first {
-				diagnostics.AddError("Received mutliple tables. Expect exactly one", "Filter resource only supports one table")
+				diagnostics.AddError("Received multiple tables. Expect exactly one", "Filter resource only supports one table")
 
 				return diagnostics
 			}

@@ -6,11 +6,13 @@ go 1.21
 require (
 	github.com/hashicorp/terraform-plugin-docs v0.18.0
 	github.com/hashicorp/terraform-plugin-framework v1.5.0
+	github.com/hashicorp/terraform-plugin-framework-jsontypes v0.1.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.12.0
 	github.com/hashicorp/terraform-plugin-go v0.21.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.6.0
 	github.com/matoous/go-nanoid/v2 v2.0.0
+	github.com/raito-io/enumer v0.1.3
 	github.com/raito-io/golang-set v0.0.4
 	github.com/raito-io/sdk v0.0.3
 )
@@ -83,7 +85,6 @@ require (
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/pascaldekloe/name v1.0.1 // indirect
 	github.com/posener/complete v1.2.3 // indirect
-	github.com/raito-io/enumer v0.1.3 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect

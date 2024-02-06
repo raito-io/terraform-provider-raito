@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aws/smithy-go/ptr"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -54,11 +53,13 @@ type AccessProviderModel[T any] interface {
 }
 
 type ReadHook[T any, ApModel AccessProviderModel[T]] func(ctx context.Context, client *sdk.RaitoClient, data ApModel) diag.Diagnostics
+type ValidationHook[T any, ApModel AccessProviderModel[T]] func(ctx context.Context, data ApModel) diag.Diagnostics
 
 type AccessProviderResource[T any, ApModel AccessProviderModel[T]] struct {
 	client *sdk.RaitoClient
 
-	readHooks []ReadHook[T, ApModel]
+	readHooks      []ReadHook[T, ApModel]
+	validationHoos []ValidationHook[T, ApModel]
 }
 
 func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]schema.Attribute {
@@ -475,6 +476,7 @@ func (a *AccessProviderResource[T, ApModel]) readWhoItems(ctx context.Context, a
 				"promise_duration": types.Int64PointerValue(item.PromiseDuration),
 			}))
 	}
+
 	return stateWhoItems, false
 }
 
@@ -606,6 +608,7 @@ func (a *AccessProviderResource[T, ApModel]) updateGetWhoItems(ctx context.Conte
 			}
 		}
 	}
+
 	return false
 }
 
@@ -705,6 +708,10 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 			}
 		}
 	}
+
+	for _, validatorHook := range a.validationHoos {
+		response.Diagnostics.Append(validatorHook(ctx, apModel)...)
+	}
 }
 
 func (a *AccessProviderResource[T, ApModel]) readOwners(ctx context.Context, apId string) (_ types.Set, diagnostics diag.Diagnostics) {
@@ -712,7 +719,7 @@ func (a *AccessProviderResource[T, ApModel]) readOwners(ctx context.Context, apI
 	defer cancel()
 
 	roleAssignments := a.client.Role().ListRoleAssignmentsOnAccessProvider(cancelCtx, apId, services.WithRoleAssignmentListFilter(&raitoType.RoleAssignmentFilterInput{
-		Role: ptr.String(ownerRole),
+		Role: utils.Ptr(ownerRole),
 	}))
 
 	var ownerIds []attr.Value

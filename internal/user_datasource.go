@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aws/smithy-go/ptr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/sdk"
 	"github.com/raito-io/sdk/services"
 	raitoTypes "github.com/raito-io/sdk/types"
+
+	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )
 
 var _ datasource.DataSource = (*UserDataSource)(nil)
@@ -119,10 +120,10 @@ func (u *UserDataSource) Read(ctx context.Context, request datasource.ReadReques
 	defer cancelFunc()
 
 	roles := u.client.Role().ListRoleAssignmentsOnUser(cancelCtx, user.Id, services.WithRoleAssignmentListFilter(&raitoTypes.RoleAssignmentFilterInput{
-		OnlyGlobal: ptr.Bool(true),
+		OnlyGlobal: utils.Ptr(true),
 	}))
 
-	var actualRoles []types.String
+	actualRoles := make([]types.String, 0)
 
 	for role := range roles {
 		if role.HasError() {

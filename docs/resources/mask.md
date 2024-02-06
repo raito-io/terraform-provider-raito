@@ -46,6 +46,7 @@ resource "raito_mask" "example" {
 
 - `columns` (Set of String) The full name of columns that should be included in the mask. Items are managed by Raito Cloud if columns is not set (nil).
 - `description` (String) The description of the mask
+- `owners` (Set of String) User id of the owners of this mask
 - `state` (String) The state of the mask Possible values are: ["Active", "Inactive"]
 - `type` (String) The masking method, which defines how the data is masked. Available types are defined by the data source.
 - `who` (Attributes Set) The who-items associated with the mask. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))

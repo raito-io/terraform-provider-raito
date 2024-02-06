@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aws/smithy-go/ptr"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -129,7 +127,7 @@ func (u *UserResource) Schema(ctx context.Context, request resource.SchemaReques
 						stringvalidator.LengthAtLeast(8),
 						stringvalidator.RegexMatches(regexp.MustCompile(".*[a-z].*"), "requires at least one lowercase letter"),
 						stringvalidator.RegexMatches(regexp.MustCompile(".*[A-Z].*"), " requires at least one uppercase letter"),
-						stringvalidator.RegexMatches(regexp.MustCompile(".*[0-9].*"), "requires at least one number"),
+						stringvalidator.RegexMatches(regexp.MustCompile(`.*\d.*`), "requires at least one number"),
 						stringvalidator.RegexMatches(regexp.MustCompile(".*[!@#$%^&*].*"), "requires at least one special character"),
 					),
 				},
@@ -241,13 +239,11 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		return
 	}
 
-	rolesSet := types.SetNull(types.StringType)
-
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
 
 	roles := u.client.Role().ListRoleAssignmentsOnUser(cancelCtx, user.Id, services.WithRoleAssignmentListFilter(&raitoTypes.RoleAssignmentFilterInput{
-		OnlyGlobal: ptr.Bool(true),
+		OnlyGlobal: utils.Ptr(true),
 	}))
 
 	actualRoles := make([]types.String, 0)
@@ -264,9 +260,7 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		actualRoles = append(actualRoles, types.StringValue(roleName))
 	}
 
-	var rolesDiagnostics diag.Diagnostics
-
-	rolesSet, rolesDiagnostics = types.SetValueFrom(ctx, types.StringType, actualRoles)
+	rolesSet, rolesDiagnostics := types.SetValueFrom(ctx, types.StringType, actualRoles)
 
 	response.Diagnostics.Append(rolesDiagnostics...)
 

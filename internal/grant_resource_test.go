@@ -200,4 +200,111 @@ resource "raito_grant" "test" {
 			},
 		})
 	})
+
+	t.Run("who abac", func(t *testing.T) {
+		resource.Test(t, resource.TestCase{
+			IsUnitTest: false,
+			PreCheck: func() {
+				AccProviderPreCheck(t)
+			},
+			TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+				tfversion.SkipBelow(tfversion.Version1_0_0),
+			},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+			Steps: []resource.TestStep{
+				{
+					Config: providerConfig + `
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+locals {
+	abac_rule = jsonencode({
+		literal = true
+	})
+}
+
+resource "raito_grant" "abac_grant" {
+	name        = "tfTestGrant"
+    description = "test description"
+	data_source = data.raito_datasource.ds.id
+	what_abac_rule = {
+        rule = local.abac_rule
+    }
+	who = [
+		{
+			"user": "terraform@raito.io"
+		}
+	]
+}
+`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "name", "tfTestGrant"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "description", "test description"),
+						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckNoResourceAttr("raito_grant.abac_grant", "what_data_objects"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.rule", "{\"literal\":true}"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.0", "PA34277"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.0", "READ"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.0.user", "terraform@raito.io"),
+					),
+				},
+				{
+					ResourceName:            "raito_grant.abac_grant",
+					ImportState:             true,
+					ImportStateVerify:       true,
+					ImportStateVerifyIgnore: []string{"who", "what_data_objects"},
+				},
+				{
+					Config: providerConfig + `
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+locals {
+	abac_rule = jsonencode({
+		literal = true
+	})
+}
+
+resource "raito_grant" "abac_grant" {
+	name        = "tfTestGrant"
+    description = "test description"
+	data_source = data.raito_datasource.ds.id
+	what_abac_rule = {
+        rule = local.abac_rule
+		scope = ["MASTER_DATA.PERSON", "MASTER_DATA.SALES"]
+		global_permissions = ["WRITE"]
+		permissions = ["SELECT"]
+		do_types = ["table", "view"]
+    }
+	who = [
+		{
+			"user": "terraform@raito.io"
+		}
+	]
+}
+`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "name", "tfTestGrant"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "description", "test description"),
+						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckNoResourceAttr("raito_grant.abac_grant", "what_data_objects"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.rule", "{\"literal\":true}"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.#", "2"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.0", "WRITE"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.permissions.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.permissions.0", "SELECT"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.do_types.#", "2"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.0.user", "terraform@raito.io"),
+					),
+				},
+			},
+		})
+	})
 }

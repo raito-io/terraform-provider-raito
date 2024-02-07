@@ -33,7 +33,9 @@ import (
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )
 
-const ownerRole = "OwnerRole"
+const (
+	ownerRole = "OwnerRole"
+)
 
 type AccessProviderResourceModel struct {
 	Id          types.String
@@ -296,28 +298,30 @@ func (a *AccessProviderResource[T, ApModel]) createUpdateOwners(ctx context.Cont
 }
 
 func (a *AccessProviderResource[T, ApModel]) updateState(ctx context.Context, data ApModel, state types.String, ap *raitoType.AccessProvider) (_ *raitoType.AccessProvider, diagnostics diag.Diagnostics) {
-	if !state.Equal(data.GetAccessProviderResourceModel().State) {
-		var err error
+	if state.Equal(data.GetAccessProviderResourceModel().State) {
+		return ap, diagnostics
+	}
 
-		if data.GetAccessProviderResourceModel().State.ValueString() == models.AccessProviderStateActive.String() {
-			ap, err = a.client.AccessProvider().DeactivateAccessProvider(ctx, ap.Id)
-			if err != nil {
-				diagnostics.AddError("Failed to activate access provider", err.Error())
+	var err error
 
-				return ap, diagnostics
-			}
-		} else if data.GetAccessProviderResourceModel().State.ValueString() == models.AccessProviderStateInactive.String() {
-			ap, err = a.client.AccessProvider().ActivateAccessProvider(ctx, ap.Id)
-			if err != nil {
-				diagnostics.AddError("Failed to deactivate access provider", err.Error())
-
-				return ap, diagnostics
-			}
-		} else {
-			diagnostics.AddError("Invalid state", fmt.Sprintf("Invalid state: %s", data.GetAccessProviderResourceModel().State.ValueString()))
+	if data.GetAccessProviderResourceModel().State.ValueString() == models.AccessProviderStateActive.String() {
+		ap, err = a.client.AccessProvider().DeactivateAccessProvider(ctx, ap.Id)
+		if err != nil {
+			diagnostics.AddError("Failed to activate access provider", err.Error())
 
 			return ap, diagnostics
 		}
+	} else if data.GetAccessProviderResourceModel().State.ValueString() == models.AccessProviderStateInactive.String() {
+		ap, err = a.client.AccessProvider().ActivateAccessProvider(ctx, ap.Id)
+		if err != nil {
+			diagnostics.AddError("Failed to deactivate access provider", err.Error())
+
+			return ap, diagnostics
+		}
+	} else {
+		diagnostics.AddError("Invalid state", fmt.Sprintf("Invalid state: %s", data.GetAccessProviderResourceModel().State.ValueString()))
+
+		return ap, diagnostics
 	}
 
 	return ap, diagnostics
@@ -1010,7 +1014,7 @@ func (p AccessProviderWhatAbacParser) ToWhatAbacRuleObject(ctx context.Context, 
 
 	abacRule := jsontypes.NewNormalizedPointerValue(ap.WhatAbacRule.RuleJson)
 
-	var scopeItems []attr.Value
+	var scopeItems []attr.Value //nolint:prealloc
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()

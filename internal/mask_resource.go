@@ -83,15 +83,11 @@ func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *s
 		for _, whatDataObject := range elements {
 			columnName := whatDataObject.(types.String).ValueString()
 
-			doId, err := client.DataObject().GetDataObjectIdByName(ctx, columnName, *result.DataSource)
-			if err != nil {
-				diagnostics.AddError("Failed to get data object id", err.Error())
-
-				return diagnostics
-			}
-
 			result.WhatDataObjects = append(result.WhatDataObjects, raitoType.AccessProviderWhatInputDO{
-				DataObjects: []*string{&doId},
+				DataObjectByName: []raitoType.AccessProviderWhatDoByNameInput{{
+					Fullname:   columnName,
+					Datasource: *result.DataSource,
+				}},
 			})
 		}
 	} else if !m.WhatAbacRule.IsNull() {
@@ -215,7 +211,7 @@ func (m *MaskResourceModel) abacWhatFromAccessProvider(ctx context.Context, clie
 
 	abacRule := jsontypes.NewNormalizedPointerValue(ap.WhatAbacRule.RuleJson)
 
-	var scopeItems []attr.Value
+	var scopeItems []attr.Value //nolint:prealloc
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()

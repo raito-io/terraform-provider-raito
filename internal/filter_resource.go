@@ -85,7 +85,7 @@ func (f *FilterResourceModel) ToAccessProviderInput(ctx context.Context, client 
 	return diagnostics
 }
 
-func (f *FilterResourceModel) FromAccessProvider(ctx context.Context, client *sdk.RaitoClient, input *raitoType.AccessProvider) diag.Diagnostics {
+func (f *FilterResourceModel) FromAccessProvider(_ context.Context, _ *sdk.RaitoClient, input *raitoType.AccessProvider) diag.Diagnostics {
 	apResourceModel := f.GetAccessProviderResourceModel()
 	diagnostics := apResourceModel.FromAccessProvider(input)
 
@@ -125,7 +125,7 @@ func NewFilterResource() resource.Resource {
 	}
 }
 
-func (f *FilterResource) Metadata(ctx context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
+func (f *FilterResource) Metadata(_ context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = request.ProviderTypeName + "_filter"
 }
 

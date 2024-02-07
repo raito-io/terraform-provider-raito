@@ -80,18 +80,26 @@ linters-settings:
       - .WithStack(
       - go-multierror.Append(
 
+  nestif:
+    # Minimal complexity of if statements to report.
+    # Default: 5
+    min-complexity: 8
+
 linters:
   disable-all: true
   enable:
     - asasalint
+    - asciicheck
     - bodyclose
-    # - cyclop #To be enabled in the future
+    - cyclop
     #- depguard #We should create a correct config to enabe depguard
     - dogsled
     - dupl
     - dupword
     - durationcheck
     - errcheck
+    - errchkjson
+    - errname
     - errorlint
     - exportloopref
     - exhaustive
@@ -105,11 +113,18 @@ linters:
     - gosec
     - gosimple
     - govet
+    - grouper
+    - importas
     - ineffassign
+    - inamedparam
     - misspell
+    - mirror
+    - nakedret
+    - nestif
     - nilerr
     - nolintlint
     - nakedret
+    - perfsprint
     - prealloc
     - predeclared
     - revive

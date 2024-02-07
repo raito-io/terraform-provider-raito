@@ -81,11 +81,7 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 	result.WhatType = utils.Ptr(raitoType.WhoAndWhatTypeStatic)
 
 	if !m.WhatDataObjects.IsNull() && !m.WhatDataObjects.IsUnknown() {
-		diagnostics.Append(m.whatDoToApInput(ctx, client, result)...)
-
-		if diagnostics.HasError() {
-			return diagnostics
-		}
+		m.whatDoToApInput(result)
 	} else if !m.WhatAbacRule.IsNull() {
 		diagnostics.Append(m.abacWhatToAccessProviderInput(ctx, client, result)...)
 
@@ -97,7 +93,7 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 	return diagnostics
 }
 
-func (m *GrantResourceModel) whatDoToApInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
+func (m *GrantResourceModel) whatDoToApInput(result *raitoType.AccessProviderInput) {
 	elements := m.WhatDataObjects.Elements()
 
 	result.WhatDataObjects = make([]raitoType.AccessProviderWhatInputDO, 0, len(elements))
@@ -107,13 +103,6 @@ func (m *GrantResourceModel) whatDoToApInput(ctx context.Context, client *sdk.Ra
 		whatDataObjectAttributes := whatDataObjectObject.Attributes()
 
 		fullname := whatDataObjectAttributes["fullname"].(types.String).ValueString()
-
-		doId, err := client.DataObject().GetDataObjectIdByName(ctx, fullname, *result.DataSource)
-		if err != nil {
-			diagnostics.AddError("Failed to get data object id", err.Error())
-
-			return diagnostics
-		}
 
 		permissionSet := whatDataObjectAttributes["permissions"].(types.Set)
 		permissions := make([]*string, 0, len(permissionSet.Elements()))
@@ -132,15 +121,15 @@ func (m *GrantResourceModel) whatDoToApInput(ctx context.Context, client *sdk.Ra
 		}
 
 		result.WhatDataObjects = append(result.WhatDataObjects, raitoType.AccessProviderWhatInputDO{
-			DataObjects: []*string{
-				&doId,
+			DataObjectByName: []raitoType.AccessProviderWhatDoByNameInput{{
+				Fullname:   fullname,
+				Datasource: *result.DataSource,
+			},
 			},
 			Permissions:       permissions,
 			GlobalPermissions: globalPermissions,
 		})
 	}
-
-	return diagnostics
 }
 
 func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk.RaitoClient, ap *raitoType.AccessProvider) diag.Diagnostics {
@@ -288,7 +277,7 @@ func (m *GrantResourceModel) abacWhatFromAccessProvider(ctx context.Context, cli
 
 	abacRule := jsontypes.NewNormalizedPointerValue(ap.WhatAbacRule.RuleJson)
 
-	var scopeItems []attr.Value
+	var scopeItems []attr.Value //nolint:prealloc
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()

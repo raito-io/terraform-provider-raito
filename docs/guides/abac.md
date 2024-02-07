@@ -94,8 +94,8 @@ Here's an example JSON rule representing a condition that would evaluate true if
 ```
 
 ## Example in Terraform
-```terraform
 
+```terraform
 locals {
   example_grant_abac_rule = jsonencode(
     {
@@ -107,20 +107,20 @@ locals {
               operator : "And",
               operands : [
                 {
-                  comparison: {
-                    operator     : "HasTag",
-                    leftOperand  : "department",
+                  comparison : {
+                    operator : "HasTag",
+                    leftOperand : "department",
                     rightOperand : {
                       literal : {
-                        string: "Finance"
+                        string : "Finance"
                       }
                     }
                   }
                 },
                 {
-                  comparison: {
-                    operator     : "HasTag",
-                    leftOperand  : "sensitivity",
+                  comparison : {
+                    operator : "HasTag",
+                    leftOperand : "sensitivity",
                     rightOperand : {
                       string : "PII"
                     }
@@ -140,14 +140,12 @@ resource "raito_datasource" "ds" {
 }
 
 resource "raito_grant" "example_grant" {
-    name           = "Grant with abac"
-    description    = "Grant with what abac rule"
-    state          = "Active"
-    what_abac_rule = {
-      rule = local.example_grant_abac_rule
-    }
-    data_source    = raito_datasource.ds.id
+  name        = "Grant with abac"
+  description = "Grant with what abac rule"
+  state       = "Active"
+  what_abac_rule = {
+    rule = local.example_grant_abac_rule
+  }
+  data_source = raito_datasource.ds.id
 }
-
 ```
-No newline at end of file

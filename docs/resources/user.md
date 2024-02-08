@@ -8,7 +8,7 @@ description: |-
 
 # raito_user (Resource)
 
-User resource
+The resource for representing a user in Raito.
 
 ## Example Usage
 

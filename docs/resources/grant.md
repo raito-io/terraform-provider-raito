@@ -8,7 +8,7 @@ description: |-
 
 # raito_grant (Resource)
 
-Grant access control resource
+The resource for representing a Raito grant access control.
 
 ## Example Usage
 

@@ -8,7 +8,7 @@ description: |-
 
 # raito_datasource (Resource)
 
-The data source resource
+The resource for representing a Raito data source.
 
 ## Example Usage
 

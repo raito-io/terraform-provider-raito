@@ -8,7 +8,7 @@ description: |-
 
 # raito_identitystore (Resource)
 
-The identity store resource
+The resource for representing a Raito identity store.
 
 ## Example Usage
 

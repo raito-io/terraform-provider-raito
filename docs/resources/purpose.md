@@ -8,7 +8,7 @@ description: |-
 
 # raito_purpose (Resource)
 
-The purpose access control resource
+The resource for representing a Raito purpose access control.
 
 ## Example Usage
 

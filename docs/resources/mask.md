@@ -8,7 +8,7 @@ description: |-
 
 # raito_mask (Resource)
 
-The mask access control resource
+The resource for representing a Raito column mask access control.
 
 ## Example Usage
 

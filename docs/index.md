@@ -8,7 +8,7 @@ description: |-
 # Raito Cloud Provider
 
 Use the Raito Cloud provider to interact with the resources supported by Raito.
-You must configure the provider with the proper credentials before you can it.
+You must configure the provider with the proper credentials before you can use it.
 
 ## Example Usage
 

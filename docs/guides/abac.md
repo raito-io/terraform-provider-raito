@@ -4,7 +4,7 @@ page_title: "Abac Rules in Raito Cloud"
 
 # Abac Rules in the Raito Provider
 
-Access provider resources (grants, masks, filters, and purposes) can define what and/or who items are authorized based on Attribute-Based Access Control (ABAC) rules. These rules are specified in JSON format following the outlined structure below.
+Access provider resources (grants, masks, filters, and purposes) can the define what- and/or who-items that are authorized based on Attribute-Based Access Control (ABAC) rules. These rules are specified in JSON format following the outlined structure below.
 
 ## JSON Structure
 

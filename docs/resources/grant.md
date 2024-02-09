@@ -3,12 +3,12 @@
 page_title: "raito_grant Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Grant access control resource
+  The resource for representing a Raito grant access control.
 ---
 
 # raito_grant (Resource)
 
-Grant access control resource
+The resource for representing a Raito grant access control.
 
 ## Example Usage
 
@@ -71,14 +71,32 @@ resource "raito_grant" "grant2" {
 ### Optional
 
 - `description` (String) The description of the grant
+- `owners` (Set of String) User id of the owners of this grant
 - `state` (String) The state of the grant Possible values are: ["Active", "Inactive"]
 - `type` (String) The type of the grant
+- `what_abac_rule` (Attributes) What data object defined by abac rule. Cannot be set when what_data_objects is set. (see [below for nested schema](#nestedatt--what_abac_rule))
 - `what_data_objects` (Attributes Set) The data object what items associated to the grant. When this is not set (nil), the what list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--what_data_objects))
 - `who` (Attributes Set) The who-items associated with the grant. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
+- `who_abac_rule` (String) json representation of the abac rule for who-items associated with the grant
 
 ### Read-Only
 
 - `id` (String) The ID of the grant
+
+<a id="nestedatt--what_abac_rule"></a>
+### Nested Schema for `what_abac_rule`
+
+Required:
+
+- `rule` (String) json representation of the abac rule
+
+Optional:
+
+- `do_types` (Set of String) Set of data object types associated to the abac rule
+- `global_permissions` (Set of String) Set of global permissions that should be granted on the matching data object. Allowed values are [READ WRITE ADMIN]
+- `permissions` (Set of String) Set of permissions that should be granted on the matching data object
+- `scope` (Set of String) Scope of the defined abac rule
+
 
 <a id="nestedatt--what_data_objects"></a>
 ### Nested Schema for `what_data_objects`
@@ -101,7 +119,7 @@ Optional:
 - `access_control` (String) The ID of the access control in Raito Cloud. Cannot be set if `user` or `group` is set.
 - `group` (String) The ID of the group in Raito Cloud. This cannot be set if `user` or `access_control` is set.
 - `promise_duration` (Number) Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.
-- `user` (String) The email address of user. This cannot be set if `group` or `access_control` is set.
+- `user` (String) The email address of the user. This cannot be set if `group` or `access_control` is set.
 
 ## Import
 

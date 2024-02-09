@@ -130,7 +130,7 @@ func (d *DataSourceResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 		},
 		Description:         "The data source resource",
-		MarkdownDescription: "The data source resource",
+		MarkdownDescription: "The resource for representing a Raito data source.",
 		Version:             1,
 	}
 }
@@ -154,10 +154,13 @@ func (d *DataSourceResource) Create(ctx context.Context, request resource.Create
 	}
 
 	data.Id = types.StringValue(dataSourceResult.Id)
-	response.State.Set(ctx, data) //Ensure to store id first
+	response.Diagnostics.Append(response.State.Set(ctx, data)...) //Ensure to store id first
 
 	// Load current identity stores
-	identityStores, err := d.client.DataSource().ListIdentityStores(ctx, dataSourceResult.Id)
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	identityStores, err := d.client.DataSource().ListIdentityStores(cancelCtx, dataSourceResult.Id)
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list identity stores", err.Error())
 
@@ -209,7 +212,7 @@ func (d *DataSourceResource) Create(ctx context.Context, request resource.Create
 		}
 	}
 
-	response.State.Set(ctx, data)
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }
 
 func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
@@ -234,7 +237,10 @@ func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequ
 		return
 	}
 
-	identityStores, err := d.client.DataSource().ListIdentityStores(ctx, stateData.Id.ValueString())
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	identityStores, err := d.client.DataSource().ListIdentityStores(cancelCtx, stateData.Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list identity stores", err.Error())
 
@@ -270,7 +276,7 @@ func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequ
 		IdentityStores:      isAttr,
 	}
 
-	response.State.Set(ctx, actualData)
+	response.Diagnostics.Append(response.State.Set(ctx, actualData)...)
 }
 
 func (d *DataSourceResource) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
@@ -292,7 +298,10 @@ func (d *DataSourceResource) Update(ctx context.Context, request resource.Update
 	}
 
 	// Load current identity stores
-	identityStores, err := d.client.DataSource().ListIdentityStores(ctx, data.Id.ValueString())
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	identityStores, err := d.client.DataSource().ListIdentityStores(cancelCtx, data.Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to list identity stores", err.Error())
 

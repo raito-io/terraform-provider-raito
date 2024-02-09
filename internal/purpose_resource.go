@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -20,11 +21,13 @@ var _ resource.Resource = (*PurposeResource)(nil)
 
 type PurposeResourceModel struct {
 	// AccessProviderResourceModel properties. This has to be duplicated because of https://github.com/hashicorp/terraform-plugin-framework/issues/242
-	Id          types.String `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	State       types.String `tfsdk:"state"`
-	Who         types.Set    `tfsdk:"who"`
+	Id          types.String         `tfsdk:"id"`
+	Name        types.String         `tfsdk:"name"`
+	Description types.String         `tfsdk:"description"`
+	State       types.String         `tfsdk:"state"`
+	Who         types.Set            `tfsdk:"who"`
+	Owners      types.Set            `tfsdk:"owners"`
+	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
 
 	// PurposeResourceModel properties.
 	Type types.String `tfsdk:"type"`
@@ -37,6 +40,8 @@ func (p *PurposeResourceModel) GetAccessProviderResourceModel() *AccessProviderR
 		Description: p.Description,
 		State:       p.State,
 		Who:         p.Who,
+		Owners:      p.Owners,
+		WhoAbacRule: p.WhoAbacRule,
 	}
 }
 
@@ -46,6 +51,8 @@ func (p *PurposeResourceModel) SetAccessProviderResourceModel(model *AccessProvi
 	p.Description = model.Description
 	p.State = model.State
 	p.Who = model.Who
+	p.Owners = model.Owners
+	p.WhoAbacRule = model.WhoAbacRule
 }
 
 func (p *PurposeResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {
@@ -73,6 +80,10 @@ func (p *PurposeResourceModel) FromAccessProvider(_ context.Context, _ *sdk.Rait
 	p.Type = types.StringPointerValue(input.Type)
 
 	return diagnostics
+}
+
+func (p *PurposeResourceModel) UpdateOwners(owners types.Set) {
+	p.Owners = owners
 }
 
 type PurposeResource struct {
@@ -106,7 +117,7 @@ func (p *PurposeResource) Schema(_ context.Context, request resource.SchemaReque
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
 		Description:         "The purpose access control resource",
-		MarkdownDescription: "The purpose access control resource",
+		MarkdownDescription: "The resource for representing a Raito purpose access control.",
 		Version:             1,
 	}
 }

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -17,14 +19,22 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/raito-io/golang-set/set"
 	"github.com/raito-io/sdk"
+	"github.com/raito-io/sdk/services"
 	raitoType "github.com/raito-io/sdk/types"
 	"github.com/raito-io/sdk/types/models"
 
+	"github.com/raito-io/terraform-provider-raito/internal/types/abac_expression"
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
+)
+
+const (
+	ownerRole = "OwnerRole"
 )
 
 type AccessProviderResourceModel struct {
@@ -33,6 +43,9 @@ type AccessProviderResourceModel struct {
 	Description types.String
 	State       types.String
 	Who         types.Set
+	WhoAbacRule jsontypes.Normalized
+
+	Owners types.Set
 }
 
 type AccessProviderModel[T any] interface {
@@ -41,14 +54,17 @@ type AccessProviderModel[T any] interface {
 	SetAccessProviderResourceModel(model *AccessProviderResourceModel)
 	ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics
 	FromAccessProvider(ctx context.Context, client *sdk.RaitoClient, input *raitoType.AccessProvider) diag.Diagnostics
+	UpdateOwners(owners types.Set)
 }
 
 type ReadHook[T any, ApModel AccessProviderModel[T]] func(ctx context.Context, client *sdk.RaitoClient, data ApModel) diag.Diagnostics
+type ValidationHook[T any, ApModel AccessProviderModel[T]] func(ctx context.Context, data ApModel) diag.Diagnostics
 
 type AccessProviderResource[T any, ApModel AccessProviderModel[T]] struct {
 	client *sdk.RaitoClient
 
-	readHooks []ReadHook[T, ApModel]
+	readHooks      []ReadHook[T, ApModel]
+	validationHoos []ValidationHook[T, ApModel]
 }
 
 func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]schema.Attribute {
@@ -105,7 +121,7 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 						Computed:            false,
 						Sensitive:           false,
 						Description:         "The email address of user",
-						MarkdownDescription: "The email address of user. This cannot be set if `group` or `access_control` is set.",
+						MarkdownDescription: "The email address of the user. This cannot be set if `group` or `access_control` is set.",
 						Validators: []validator.String{
 							stringvalidator.RegexMatches(regexp.MustCompile(`.+@.+\..+`), "value must be a valid email address"),
 						},
@@ -155,6 +171,30 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Description:         fmt.Sprintf("The who-items associated with the %s", typeName),
 			MarkdownDescription: fmt.Sprintf("The who-items associated with the %s. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud.", typeName),
 		},
+		"who_abac_rule": schema.StringAttribute{
+			CustomType:          jsontypes.NormalizedType{},
+			Required:            false,
+			Optional:            true,
+			Computed:            false,
+			Sensitive:           false,
+			Description:         fmt.Sprintf("json representation of the abac rule for who-items associated with the %s", typeName),
+			MarkdownDescription: fmt.Sprintf("json representation of the abac rule for who-items associated with the %s", typeName),
+		},
+		"owners": schema.SetAttribute{
+			ElementType:         types.StringType,
+			Required:            false,
+			Optional:            true,
+			Computed:            true,
+			Sensitive:           false,
+			Description:         fmt.Sprintf("User id of the owners of this %s", typeName),
+			MarkdownDescription: fmt.Sprintf("User id of the owners of this %s", typeName),
+			Validators: []validator.Set{
+				setvalidator.ValueStringsAre(
+					stringvalidator.LengthAtLeast(3),
+				),
+			},
+			Default: nil,
+		},
 	}
 
 	return defaultSchema
@@ -174,7 +214,11 @@ func (a *AccessProviderResource[T, ApModel]) Create(ctx context.Context, request
 
 func (a *AccessProviderResource[T, ApModel]) create(ctx context.Context, data ApModel, response *resource.CreateResponse) {
 	input := raitoType.AccessProviderInput{}
-	state := data.GetAccessProviderResourceModel().State
+
+	apResourceModel := data.GetAccessProviderResourceModel()
+
+	state := apResourceModel.State
+	owners := apResourceModel.Owners
 
 	response.Diagnostics.Append(data.ToAccessProviderInput(ctx, a.client, &input)...)
 
@@ -215,31 +259,69 @@ func (a *AccessProviderResource[T, ApModel]) create(ctx context.Context, data Ap
 
 	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	response.Diagnostics.Append(a.createUpdateOwners(ctx, data, owners, ap, &response.State)...)
+}
+
+func (a *AccessProviderResource[T, ApModel]) createUpdateOwners(ctx context.Context, data ApModel, owners types.Set, ap *raitoType.AccessProvider, state *tfsdk.State) (diagnostics diag.Diagnostics) {
+	if !owners.IsNull() && !owners.IsUnknown() {
+		ownerElements := owners.Elements()
+
+		ownerIds := make([]string, len(ownerElements))
+		for i, ownerElement := range ownerElements {
+			ownerIds[i] = ownerElement.(types.String).ValueString()
+		}
+
+		_, err := a.client.Role().UpdateRoleAssigneesOnAccessProvider(ctx, ap.Id, ownerRole, ownerIds...)
+		if err != nil {
+			diagnostics.AddError("Failed to update owners of access provider", err.Error())
+
+			return diagnostics
+		}
+	} else {
+		ownerSet, ownerDiagnostics := a.readOwners(ctx, ap.Id)
+		diagnostics.Append(ownerDiagnostics...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+
+		data.UpdateOwners(ownerSet)
+		diagnostics.Append(state.Set(ctx, data)...)
+	}
+
+	return diagnostics
 }
 
 func (a *AccessProviderResource[T, ApModel]) updateState(ctx context.Context, data ApModel, state types.String, ap *raitoType.AccessProvider) (_ *raitoType.AccessProvider, diagnostics diag.Diagnostics) {
-	if !state.Equal(data.GetAccessProviderResourceModel().State) {
-		var err error
+	if state.Equal(data.GetAccessProviderResourceModel().State) {
+		return ap, diagnostics
+	}
 
-		if data.GetAccessProviderResourceModel().State.ValueString() == models.AccessProviderStateActive.String() {
-			ap, err = a.client.AccessProvider().DeactivateAccessProvider(ctx, ap.Id)
-			if err != nil {
-				diagnostics.AddError("Failed to activate access provider", err.Error())
+	var err error
 
-				return ap, diagnostics
-			}
-		} else if data.GetAccessProviderResourceModel().State.ValueString() == models.AccessProviderStateInactive.String() {
-			ap, err = a.client.AccessProvider().ActivateAccessProvider(ctx, ap.Id)
-			if err != nil {
-				diagnostics.AddError("Failed to deactivate access provider", err.Error())
-
-				return ap, diagnostics
-			}
-		} else {
-			diagnostics.AddError("Invalid state", fmt.Sprintf("Invalid state: %s", data.GetAccessProviderResourceModel().State.ValueString()))
+	if data.GetAccessProviderResourceModel().State.ValueString() == models.AccessProviderStateActive.String() {
+		ap, err = a.client.AccessProvider().DeactivateAccessProvider(ctx, ap.Id)
+		if err != nil {
+			diagnostics.AddError("Failed to activate access provider", err.Error())
 
 			return ap, diagnostics
 		}
+	} else if data.GetAccessProviderResourceModel().State.ValueString() == models.AccessProviderStateInactive.String() {
+		ap, err = a.client.AccessProvider().ActivateAccessProvider(ctx, ap.Id)
+		if err != nil {
+			diagnostics.AddError("Failed to deactivate access provider", err.Error())
+
+			return ap, diagnostics
+		}
+	} else {
+		diagnostics.AddError("Invalid state", fmt.Sprintf("Invalid state: %s", data.GetAccessProviderResourceModel().State.ValueString()))
+
+		return ap, diagnostics
 	}
 
 	return ap, diagnostics
@@ -311,51 +393,9 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 
 		stateWhoItems := make([]attr.Value, 0)
 
-		// Get all who-items. Ignore implemented promises.
-		whoItems := a.client.AccessProvider().GetAccessProviderWhoList(ctx, apModel.Id.ValueString())
-		for whoItem := range whoItems {
-			if whoItem.HasError() {
-				response.Diagnostics.AddError("Failed to read who-item from access provider", whoItem.GetError().Error())
-
-				return
-			}
-
-			var user, group, whoAp *string
-
-			item := whoItem.GetItem()
-			switch benificiaryItem := item.Item.(type) {
-			case *raitoType.AccessProviderWhoListItemItemUser:
-				user = benificiaryItem.Email
-			case *raitoType.AccessProviderWhoListItemItemGroup:
-				group = &benificiaryItem.Id
-			case *raitoType.AccessProviderWhoListItemItemAccessProvider:
-				whoAp = &benificiaryItem.Id
-			default:
-				response.Diagnostics.AddError("Invalid who-item", fmt.Sprintf("Invalid who-item: %T", benificiaryItem))
-
-				return
-			}
-
-			if item.Type == raitoType.AccessWhoItemTypeWhogrant {
-				if (user != nil && definedPromises.Contains(_userPrefix(*user))) || (group != nil && definedPromises.Contains(_groupPrefix(*group))) || (whoAp != nil && definedPromises.Contains(_accessControlPrefix(*whoAp))) {
-					continue
-				}
-			} else if item.PromiseDuration == nil {
-				response.Diagnostics.AddError("Invalid who-item detected.", "Invalid who-item. Promise duration not set on promise who-item")
-			}
-
-			stateWhoItems = append(stateWhoItems, types.ObjectValueMust(
-				map[string]attr.Type{
-					"user":             types.StringType,
-					"group":            types.StringType,
-					"access_control":   types.StringType,
-					"promise_duration": types.Int64Type,
-				}, map[string]attr.Value{
-					"user":             types.StringPointerValue(user),
-					"group":            types.StringPointerValue(group),
-					"access_control":   types.StringPointerValue(whoAp),
-					"promise_duration": types.Int64PointerValue(item.PromiseDuration),
-				}))
+		stateWhoItems, done := a.readWhoItems(ctx, apModel, response, definedPromises, stateWhoItems)
+		if done {
+			return
 		}
 
 		who, whoDiag := types.SetValue(types.ObjectType{
@@ -376,8 +416,22 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 		apModel.Who = who
 	}
 
+	if ap.WhoAbacRule != nil {
+		apModel.WhoAbacRule = jsontypes.NewNormalizedPointerValue(ap.WhoAbacRule.RuleJson)
+	}
+
 	// Set all global access provider attributes
 	data.SetAccessProviderResourceModel(apModel)
+
+	// Read owners
+	ownersSet, ownerDiagnostics := a.readOwners(ctx, apModel.Id.ValueString())
+	response.Diagnostics.Append(ownerDiagnostics...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	data.UpdateOwners(ownersSet)
 
 	// Execute action specific hooks
 	for _, hook := range hooks {
@@ -389,7 +443,61 @@ func (a *AccessProviderResource[T, ApModel]) read(ctx context.Context, data ApMo
 	}
 
 	// Set new state of the access provider
-	response.State.Set(ctx, data)
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+}
+
+func (a *AccessProviderResource[T, ApModel]) readWhoItems(ctx context.Context, apModel *AccessProviderResourceModel, response *resource.ReadResponse, definedPromises set.Set[string], stateWhoItems []attr.Value) ([]attr.Value, bool) {
+	// Get all who-items. Ignore implemented promises.
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
+
+	whoItems := a.client.AccessProvider().GetAccessProviderWhoList(cancelCtx, apModel.Id.ValueString())
+	for whoItem := range whoItems {
+		if whoItem.HasError() {
+			response.Diagnostics.AddError("Failed to read who-item from access provider", whoItem.GetError().Error())
+
+			return nil, true
+		}
+
+		var user, group, whoAp *string
+
+		item := whoItem.GetItem()
+		switch benificiaryItem := item.Item.(type) {
+		case *raitoType.AccessProviderWhoListItemItemUser:
+			user = benificiaryItem.Email
+		case *raitoType.AccessProviderWhoListItemItemGroup:
+			group = &benificiaryItem.Id
+		case *raitoType.AccessProviderWhoListItemItemAccessProvider:
+			whoAp = &benificiaryItem.Id
+		default:
+			response.Diagnostics.AddError("Invalid who-item", fmt.Sprintf("Invalid who-item: %T", benificiaryItem))
+
+			return nil, true
+		}
+
+		if item.Type == raitoType.AccessWhoItemTypeWhogrant {
+			if (user != nil && definedPromises.Contains(_userPrefix(*user))) || (group != nil && definedPromises.Contains(_groupPrefix(*group))) || (whoAp != nil && definedPromises.Contains(_accessControlPrefix(*whoAp))) {
+				continue
+			}
+		} else if item.PromiseDuration == nil {
+			response.Diagnostics.AddError("Invalid who-item detected.", "Invalid who-item. Promise duration not set on promise who-item")
+		}
+
+		stateWhoItems = append(stateWhoItems, types.ObjectValueMust(
+			map[string]attr.Type{
+				"user":             types.StringType,
+				"group":            types.StringType,
+				"access_control":   types.StringType,
+				"promise_duration": types.Int64Type,
+			}, map[string]attr.Value{
+				"user":             types.StringPointerValue(user),
+				"group":            types.StringPointerValue(group),
+				"access_control":   types.StringPointerValue(whoAp),
+				"promise_duration": types.Int64PointerValue(item.PromiseDuration),
+			}))
+	}
+
+	return stateWhoItems, false
 }
 
 func (a *AccessProviderResource[T, ApModel]) Update(ctx context.Context, request resource.UpdateRequest, response *resource.UpdateResponse) {
@@ -411,6 +519,7 @@ func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data Ap
 
 	id := apResourceModel.Id.ValueString()
 	state := apResourceModel.State
+	owners := apResourceModel.Owners
 
 	response.Diagnostics.Append(data.ToAccessProviderInput(ctx, a.client, &input)...)
 
@@ -433,12 +542,54 @@ func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data Ap
 		}
 	}
 
-	whoItemChannel := a.client.AccessProvider().GetAccessProviderWhoList(ctx, id)
+	if a.updateGetWhoItems(ctx, id, response, definedPromises, input) {
+		return
+	}
+
+	// Update access provider
+	ap, err := a.client.AccessProvider().UpdateAccessProvider(ctx, id, input, services.WithAccessProviderOverrideLocks())
+	if err != nil {
+		response.Diagnostics.AddError("Failed to update access provider", err.Error())
+
+		return
+	}
+
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	ap, diagnostics := a.updateState(ctx, data, state, ap)
+
+	response.Diagnostics.Append(diagnostics...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	// Update owners
+	response.Diagnostics.Append(a.createUpdateOwners(ctx, data, owners, ap, &response.State)...)
+}
+
+func (a *AccessProviderResource[T, ApModel]) updateGetWhoItems(ctx context.Context, id string, response *resource.UpdateResponse, definedPromises set.Set[string], input raitoType.AccessProviderInput) bool {
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
+
+	whoItemChannel := a.client.AccessProvider().GetAccessProviderWhoList(cancelCtx, id)
 	for whoItem := range whoItemChannel {
 		if whoItem.HasError() {
 			response.Diagnostics.AddError("Failed to read who-item from access provider", whoItem.GetError().Error())
 
-			return
+			return true
 		}
 
 		item := whoItem.GetItem()
@@ -478,31 +629,7 @@ func (a *AccessProviderResource[T, ApModel]) update(ctx context.Context, data Ap
 		}
 	}
 
-	// Update access provider
-	ap, err := a.client.AccessProvider().UpdateAccessProvider(ctx, id, input)
-	if err != nil {
-		response.Diagnostics.AddError("Failed to update access provider", err.Error())
-
-		return
-	}
-
-	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
-	response.Diagnostics.Append(response.State.Set(ctx, data)...)
-
-	if response.Diagnostics.HasError() {
-		return
-	}
-
-	ap, diagnostics := a.updateState(ctx, data, state, ap)
-
-	response.Diagnostics.Append(diagnostics...)
-
-	if response.Diagnostics.HasError() {
-		return
-	}
-
-	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
-	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+	return false
 }
 
 func (a *AccessProviderResource[T, ApModel]) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
@@ -570,9 +697,21 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 
 	apModel := ApModel(&data)
 
-	// For each who-item check if exactly one of user, group or access_control is set.
-	who := &apModel.GetAccessProviderResourceModel().Who
+	apResourceModel := apModel.GetAccessProviderResourceModel()
 
+	who := &apResourceModel.Who
+	whoAbac := &apResourceModel.WhoAbacRule
+
+	if !who.IsNull() && !whoAbac.IsNull() {
+		response.Diagnostics.AddError(
+			"Cannot specify both who and who_abac",
+			"Please specify only one of who or who_abac",
+		)
+
+		return
+	}
+
+	// For each who-item check if exactly one of user, group or access_control is set.
 	if !who.IsNull() {
 		for _, whoItem := range who.Elements() {
 			whoItemAttribute := whoItem.(types.Object)
@@ -601,54 +740,131 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 			}
 		}
 	}
+
+	for _, validatorHook := range a.validationHoos {
+		response.Diagnostics.Append(validatorHook(ctx, apModel)...)
+	}
+}
+
+func (a *AccessProviderResource[T, ApModel]) readOwners(ctx context.Context, apId string) (_ types.Set, diagnostics diag.Diagnostics) {
+	cancelCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	roleAssignments := a.client.Role().ListRoleAssignmentsOnAccessProvider(cancelCtx, apId, services.WithRoleAssignmentListFilter(&raitoType.RoleAssignmentFilterInput{
+		Role: utils.Ptr(ownerRole),
+	}))
+
+	var ownerIds []attr.Value
+
+	for roleAssignment := range roleAssignments {
+		if roleAssignment.HasError() {
+			diagnostics.AddError("Failed to list role assignments on access provider", roleAssignment.GetError().Error())
+
+			return basetypes.SetValue{}, diagnostics
+		}
+
+		switch to := roleAssignment.GetItem().To.(type) {
+		case *raitoType.RoleAssignmentToUser:
+			ownerIds = append(ownerIds, types.StringValue(to.Id))
+		case *raitoType.RoleAssignmentToGroup:
+			ownerIds = append(ownerIds, types.StringValue(to.Id))
+		default:
+			diagnostics.AddError("Unexpected role assignment type", fmt.Sprintf("Unexpected role assignment type %T", to))
+
+			return basetypes.SetValue{}, diagnostics
+		}
+	}
+
+	ownerSet, diagOwners := types.SetValue(types.StringType, ownerIds)
+	diagnostics.Append(diagOwners...)
+
+	if diagnostics.HasError() {
+		return basetypes.SetValue{}, diagnostics
+	}
+
+	return ownerSet, diagnostics
 }
 
 func (a *AccessProviderResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
 	result.Name = a.Name.ValueStringPointer()
 	result.Description = a.Description.ValueStringPointer()
 
+	result.WhoType = utils.Ptr(raitoType.WhoAndWhatTypeStatic)
+
 	if !a.Who.IsNull() && !a.Who.IsUnknown() {
-		whoItems := a.Who.Elements()
+		diagnostics.Append(a.whoElementsToAccessProviderInput(ctx, client, result)...)
+	} else if !a.WhoAbacRule.IsNull() && !a.WhoAbacRule.IsUnknown() {
+		result.WhoType = utils.Ptr(raitoType.WhoAndWhatTypeDynamic)
+		diagnostics.Append(a.whoAbacRuleToAccessProviderInput(result)...)
+	}
 
-		result.WhoItems = make([]raitoType.WhoItemInput, 0, len(whoItems))
+	return diagnostics
+}
 
-		for _, whoItem := range whoItems {
-			whoObject := whoItem.(types.Object)
-			whoAttributes := whoObject.Attributes()
+func (a *AccessProviderResourceModel) whoElementsToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
+	whoItems := a.Who.Elements()
 
-			raitoWhoItem := raitoType.WhoItemInput{
-				Type: utils.Ptr(raitoType.AccessWhoItemTypeWhogrant),
-			}
+	result.WhoItems = make([]raitoType.WhoItemInput, 0, len(whoItems))
 
-			if promiseDurationAttribute, found := whoAttributes["promise_duration"]; found && !promiseDurationAttribute.IsNull() {
-				promiseDurationInt := promiseDurationAttribute.(types.Int64)
-				raitoWhoItem.PromiseDuration = promiseDurationInt.ValueInt64Pointer()
-				raitoWhoItem.Type = utils.Ptr(raitoType.AccessWhoItemTypeWhopromise)
-			}
+	for _, whoItem := range whoItems {
+		whoObject := whoItem.(types.Object)
+		whoAttributes := whoObject.Attributes()
 
-			if userAttribute, found := whoAttributes["user"]; found && !userAttribute.IsNull() {
-				userString := userAttribute.(types.String)
+		raitoWhoItem := raitoType.WhoItemInput{
+			Type: utils.Ptr(raitoType.AccessWhoItemTypeWhogrant),
+		}
 
-				userInformation, err := client.User().GetUserByEmail(ctx, userString.ValueString())
-				if err != nil {
-					diagnostics.AddError("Failed to get user", err.Error())
+		if promiseDurationAttribute, found := whoAttributes["promise_duration"]; found && !promiseDurationAttribute.IsNull() {
+			promiseDurationInt := promiseDurationAttribute.(types.Int64)
+			raitoWhoItem.PromiseDuration = promiseDurationInt.ValueInt64Pointer()
+			raitoWhoItem.Type = utils.Ptr(raitoType.AccessWhoItemTypeWhopromise)
+		}
 
-					continue
-				}
+		if userAttribute, found := whoAttributes["user"]; found && !userAttribute.IsNull() {
+			userString := userAttribute.(types.String)
 
-				raitoWhoItem.User = &userInformation.Id
-			} else if groupAttribute, found := whoAttributes["group"]; found && !groupAttribute.IsNull() {
-				raitoWhoItem.Group = groupAttribute.(types.String).ValueStringPointer()
-			} else if accessControlAttribute, found := whoAttributes["access_control"]; found && !accessControlAttribute.IsNull() {
-				raitoWhoItem.AccessProvider = accessControlAttribute.(types.String).ValueStringPointer()
-			} else {
-				diagnostics.AddError("Failed to get who-item", "No user, group, or access control set")
+			userInformation, err := client.User().GetUserByEmail(ctx, userString.ValueString())
+			if err != nil {
+				diagnostics.AddError("Failed to get user", err.Error())
 
 				continue
 			}
 
-			result.WhoItems = append(result.WhoItems, raitoWhoItem)
+			raitoWhoItem.User = &userInformation.Id
+		} else if groupAttribute, found := whoAttributes["group"]; found && !groupAttribute.IsNull() {
+			raitoWhoItem.Group = groupAttribute.(types.String).ValueStringPointer()
+		} else if accessControlAttribute, found := whoAttributes["access_control"]; found && !accessControlAttribute.IsNull() {
+			raitoWhoItem.AccessProvider = accessControlAttribute.(types.String).ValueStringPointer()
+		} else {
+			diagnostics.AddError("Failed to get who-item", "No user, group, or access control set")
+
+			continue
 		}
+
+		result.WhoItems = append(result.WhoItems, raitoWhoItem)
+	}
+
+	return diagnostics
+}
+
+func (a *AccessProviderResourceModel) whoAbacRuleToAccessProviderInput(result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
+	var abacBeRule abac_expression.BinaryExpression
+
+	diagnostics.Append(a.WhoAbacRule.Unmarshal(&abacBeRule)...)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	rule, err := abacBeRule.ToGqlInput()
+	if err != nil {
+		diagnostics.AddError("Failed to convert abac-rule to gql", err.Error())
+
+		return
+	}
+
+	result.WhoAbacRule = &raitoType.WhoAbacRuleInput{
+		Rule: *rule,
 	}
 
 	return diagnostics
@@ -673,4 +889,171 @@ func _groupPrefix(g string) string {
 
 func _accessControlPrefix(a string) string {
 	return "access_control:" + a
+}
+
+type AccessProviderWhatAbacParser struct {
+	ResourceFixedDoType []string
+}
+
+func (p AccessProviderWhatAbacParser) ToAccessProviderInput(ctx context.Context, whatAbacRule types.Object, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
+	attributes := whatAbacRule.Attributes()
+
+	var doTypes []string
+
+	if len(p.ResourceFixedDoType) > 0 {
+		var doDiagnostics diag.Diagnostics
+
+		doTypes, doDiagnostics = utils.StringSetToSlice(ctx, attributes["do_types"].(types.Set))
+		diagnostics.Append(doDiagnostics...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+	} else {
+		doTypes = p.ResourceFixedDoType
+	}
+
+	permissions, permissionDiagnostics := utils.StringSetToSlice(ctx, attributes["permissions"].(types.Set))
+	diagnostics.Append(permissionDiagnostics...)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	globalPermissions, globalPermissionDiagnostics := utils.StringSetToSlice(ctx, attributes["global_permissions"].(types.Set))
+	diagnostics.Append(globalPermissionDiagnostics...)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	scopeAttr := attributes["scope"]
+
+	scope := make([]string, 0)
+
+	if !scopeAttr.IsNull() && !scopeAttr.IsUnknown() {
+		scopeFullnameItems, scopeDiagnostics := utils.StringSetToSlice(ctx, attributes["scope"].(types.Set))
+		diagnostics.Append(scopeDiagnostics...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+
+		for _, scopeFullnameItem := range scopeFullnameItems {
+			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, *result.DataSource)
+			if err != nil {
+				diagnostics.AddError("Failed to get data object id", err.Error())
+
+				return diagnostics
+			}
+
+			scope = append(scope, id)
+		}
+	}
+
+	jsonRule := attributes["rule"].(jsontypes.Normalized)
+
+	var abacRule abac_expression.BinaryExpression
+	diagnostics.Append(jsonRule.Unmarshal(&abacRule)...)
+
+	if diagnostics.HasError() {
+		return diagnostics
+	}
+
+	abacInput, err := abacRule.ToGqlInput()
+	if err != nil {
+		diagnostics.AddError("Failed to convert abac rule to gql input", err.Error())
+
+		return diagnostics
+	}
+
+	result.WhatType = utils.Ptr(raitoType.WhoAndWhatTypeDynamic)
+	result.WhatAbacRule = &raitoType.WhatAbacRuleInput{
+		DoTypes:           doTypes,
+		Permissions:       permissions,
+		GlobalPermissions: globalPermissions,
+		Scope:             scope,
+		Rule:              *abacInput,
+	}
+
+	return diagnostics
+}
+
+func (p AccessProviderWhatAbacParser) ToWhatAbacRuleObject(ctx context.Context, client *sdk.RaitoClient, ap *raitoType.AccessProvider) (_ types.Object, diagnostics diag.Diagnostics) {
+	objectTypes := map[string]attr.Type{
+		"permissions":        types.SetType{ElemType: types.StringType},
+		"global_permissions": types.SetType{ElemType: types.StringType},
+		"scope":              types.SetType{ElemType: types.StringType},
+		"rule":               jsontypes.NormalizedType{},
+	}
+
+	if len(p.ResourceFixedDoType) > 0 {
+		objectTypes["do_types"] = types.SetType{ElemType: types.StringType}
+	}
+
+	permissions, pDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.Permissions)
+	diagnostics.Append(pDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	globalPermissions, gpDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.GlobalPermissions)
+	diagnostics.Append(gpDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	doTypes, dtDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.DoTypes)
+	diagnostics.Append(dtDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	abacRule := jsontypes.NewNormalizedPointerValue(ap.WhatAbacRule.RuleJson)
+
+	var scopeItems []attr.Value //nolint:prealloc
+
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	defer cancelFunc()
+
+	for scopeItem := range client.AccessProvider().GetAccessProviderAbacWhatScope(cancelCtx, ap.Id) {
+		if scopeItem.HasError() {
+			diagnostics.AddError("Failed to load access provider abac scope", scopeItem.GetError().Error())
+
+			return types.ObjectNull(objectTypes), diagnostics
+		}
+
+		scopeItems = append(scopeItems, types.StringValue(scopeItem.MustGetItem().FullName))
+	}
+
+	objectValue := map[string]attr.Value{
+		"do_types":           doTypes,
+		"permissions":        permissions,
+		"global_permissions": globalPermissions,
+		"rule":               abacRule,
+	}
+
+	if len(p.ResourceFixedDoType) > 0 {
+		scope, scopeDiagnostics := types.SetValue(types.StringType, scopeItems)
+		diagnostics.Append(scopeDiagnostics...)
+
+		if diagnostics.HasError() {
+			return types.ObjectNull(objectTypes), diagnostics
+		}
+
+		objectValue["scope"] = scope
+	}
+
+	object, whatAbacDiagnostics := types.ObjectValue(objectTypes, objectValue)
+
+	diagnostics.Append(whatAbacDiagnostics...)
+
+	if diagnostics.HasError() {
+		return types.ObjectNull(objectTypes), diagnostics
+	}
+
+	return object, diagnostics
 }

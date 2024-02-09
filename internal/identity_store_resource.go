@@ -96,12 +96,12 @@ func (i *IdentityStoreResource) Schema(ctx context.Context, request resource.Sch
 				Computed:            true,
 				Sensitive:           false,
 				Description:         "True, if this is a master identity store",
-				MarkdownDescription: "`True`, if this is a master identity store",
+				MarkdownDescription: "`True`, if this is a master identity store. Default: `false`",
 				Default:             booldefault.StaticBool(false),
 			},
 		},
 		Description:         "The identity store resource",
-		MarkdownDescription: "The identity store resource",
+		MarkdownDescription: "The resource for representing a Raito identity store.",
 		Version:             1,
 	}
 }
@@ -124,7 +124,7 @@ func (i *IdentityStoreResource) Create(ctx context.Context, request resource.Cre
 	}
 
 	data.Id = types.StringValue(isResult.Id)
-	response.State.Set(ctx, data)
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }
 
 func (i *IdentityStoreResource) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {

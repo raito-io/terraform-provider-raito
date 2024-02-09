@@ -3,12 +3,12 @@
 page_title: "raito_purpose Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The purpose access control resource
+  The resource for representing a Raito purpose access control.
 ---
 
 # raito_purpose (Resource)
 
-The purpose access control resource
+The resource for representing a Raito purpose access control.
 
 ## Example Usage
 
@@ -50,9 +50,11 @@ resource "raito_purpose" "example_purpose" {
 ### Optional
 
 - `description` (String) The description of the purpose
+- `owners` (Set of String) User id of the owners of this purpose
 - `state` (String) The state of the purpose Possible values are: ["Active", "Inactive"]
 - `type` (String) The type of the purpose
 - `who` (Attributes Set) The who-items associated with the purpose. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
+- `who_abac_rule` (String) json representation of the abac rule for who-items associated with the purpose
 
 ### Read-Only
 
@@ -66,7 +68,7 @@ Optional:
 - `access_control` (String) The ID of the access control in Raito Cloud. Cannot be set if `user` or `group` is set.
 - `group` (String) The ID of the group in Raito Cloud. This cannot be set if `user` or `access_control` is set.
 - `promise_duration` (Number) Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.
-- `user` (String) The email address of user. This cannot be set if `group` or `access_control` is set.
+- `user` (String) The email address of the user. This cannot be set if `group` or `access_control` is set.
 
 ## Import
 

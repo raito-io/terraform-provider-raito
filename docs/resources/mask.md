@@ -3,12 +3,12 @@
 page_title: "raito_mask Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The mask access control resource
+  The resource for representing a Raito column mask access control.
 ---
 
 # raito_mask (Resource)
 
-The mask access control resource
+The resource for representing a Raito column mask access control.
 
 ## Example Usage
 
@@ -46,13 +46,28 @@ resource "raito_mask" "example" {
 
 - `columns` (Set of String) The full name of columns that should be included in the mask. Items are managed by Raito Cloud if columns is not set (nil).
 - `description` (String) The description of the mask
+- `owners` (Set of String) User id of the owners of this mask
 - `state` (String) The state of the mask Possible values are: ["Active", "Inactive"]
 - `type` (String) The masking method, which defines how the data is masked. Available types are defined by the data source.
+- `what_abac_rule` (Attributes) What data object defined by abac rule. Cannot be set when what_data_objects is set. (see [below for nested schema](#nestedatt--what_abac_rule))
 - `who` (Attributes Set) The who-items associated with the mask. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
+- `who_abac_rule` (String) json representation of the abac rule for who-items associated with the mask
 
 ### Read-Only
 
 - `id` (String) The ID of the mask
+
+<a id="nestedatt--what_abac_rule"></a>
+### Nested Schema for `what_abac_rule`
+
+Required:
+
+- `rule` (String) json representation of the abac rule
+
+Optional:
+
+- `scope` (Set of String) Scope of the defined abac rule
+
 
 <a id="nestedatt--who"></a>
 ### Nested Schema for `who`
@@ -62,7 +77,7 @@ Optional:
 - `access_control` (String) The ID of the access control in Raito Cloud. Cannot be set if `user` or `group` is set.
 - `group` (String) The ID of the group in Raito Cloud. This cannot be set if `user` or `access_control` is set.
 - `promise_duration` (Number) Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.
-- `user` (String) The email address of user. This cannot be set if `group` or `access_control` is set.
+- `user` (String) The email address of the user. This cannot be set if `group` or `access_control` is set.
 
 ## Import
 

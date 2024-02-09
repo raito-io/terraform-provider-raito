@@ -3,12 +3,12 @@
 page_title: "raito_datasource Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The data source resource
+  The resource for representing a Raito data source.
 ---
 
 # raito_datasource (Resource)
 
-The data source resource
+The resource for representing a Raito data source.
 
 ## Example Usage
 

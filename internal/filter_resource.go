@@ -162,7 +162,7 @@ func (f *FilterResource) Schema(ctx context.Context, request resource.SchemaRequ
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
 		Description:         "The filter access control resource",
-		MarkdownDescription: "The filter access control resource",
+		MarkdownDescription: "The resource for representing a Raito row-level filter access control.",
 		Version:             1,
 	}
 }

@@ -130,7 +130,7 @@ func (d *DataSourceResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 		},
 		Description:         "The data source resource",
-		MarkdownDescription: "The data source resource",
+		MarkdownDescription: "The resource for representing a Raito data source.",
 		Version:             1,
 	}
 }

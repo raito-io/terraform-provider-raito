@@ -121,7 +121,7 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 						Computed:            false,
 						Sensitive:           false,
 						Description:         "The email address of user",
-						MarkdownDescription: "The email address of user. This cannot be set if `group` or `access_control` is set.",
+						MarkdownDescription: "The email address of the user. This cannot be set if `group` or `access_control` is set.",
 						Validators: []validator.String{
 							stringvalidator.RegexMatches(regexp.MustCompile(`.+@.+\..+`), "value must be a valid email address"),
 						},

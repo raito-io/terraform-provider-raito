@@ -3,7 +3,7 @@
 page_title: "raito_user Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  User resource
+  The resource for representing a user in Raito.
 ---
 
 # raito_user (Resource)

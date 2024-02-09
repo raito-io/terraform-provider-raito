@@ -329,7 +329,7 @@ func (m *MaskResource) Schema(ctx context.Context, request resource.SchemaReques
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
 		Description:         "The mask access control resource",
-		MarkdownDescription: "The mask access control resource",
+		MarkdownDescription: "The resource for representing a Raito column mask access control.",
 		Version:             1,
 	}
 }

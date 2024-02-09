@@ -101,7 +101,7 @@ func (i *IdentityStoreResource) Schema(ctx context.Context, request resource.Sch
 			},
 		},
 		Description:         "The identity store resource",
-		MarkdownDescription: "The identity store resource",
+		MarkdownDescription: "The resource for representing a Raito identity store.",
 		Version:             1,
 	}
 }

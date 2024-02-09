@@ -3,7 +3,7 @@
 page_title: "raito_grant Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Grant access control resource
+  The resource for representing a Raito grant access control.
 ---
 
 # raito_grant (Resource)
@@ -119,7 +119,7 @@ Optional:
 - `access_control` (String) The ID of the access control in Raito Cloud. Cannot be set if `user` or `group` is set.
 - `group` (String) The ID of the group in Raito Cloud. This cannot be set if `user` or `access_control` is set.
 - `promise_duration` (Number) Specify this to indicate that this who-item is a promise instead of a direct grant. This is specified as the number of seconds that access should be granted when requested.
-- `user` (String) The email address of user. This cannot be set if `group` or `access_control` is set.
+- `user` (String) The email address of the user. This cannot be set if `group` or `access_control` is set.
 
 ## Import
 

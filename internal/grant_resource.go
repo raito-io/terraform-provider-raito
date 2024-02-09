@@ -471,7 +471,7 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
 		Description:         "Grant access control resource",
-		MarkdownDescription: "Grant access control resource",
+		MarkdownDescription: "The resource for representing a Raito grant access control.",
 		Version:             1,
 	}
 }

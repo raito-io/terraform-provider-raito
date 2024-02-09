@@ -3,7 +3,7 @@
 page_title: "raito_filter Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The filter access control resource
+  The resource for representing a Raito row-level filter access control.
 ---
 
 # raito_filter (Resource)

@@ -2,7 +2,6 @@ module github.com/raito-io/terraform-provider-raito
 
 go 1.21
 
-
 require (
 	github.com/hashicorp/terraform-plugin-docs v0.18.0
 	github.com/hashicorp/terraform-plugin-framework v1.5.0
@@ -12,7 +11,7 @@ require (
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.6.0
 	github.com/matoous/go-nanoid/v2 v2.0.0
-	github.com/raito-io/enumer v0.1.3
+	github.com/raito-io/enumer v0.1.4
 	github.com/raito-io/golang-set v0.0.4
 	github.com/raito-io/sdk v0.0.4
 )
@@ -97,7 +96,7 @@ require (
 	github.com/zclconf/go-cty v1.14.1 // indirect
 	golang.org/x/crypto v0.18.0 // indirect
 	golang.org/x/exp v0.0.0-20230809150735-7b3493d9a819 // indirect
-	golang.org/x/mod v0.14.0 // indirect
+	golang.org/x/mod v0.15.0 // indirect
 	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

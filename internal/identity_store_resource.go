@@ -33,7 +33,6 @@ func (m *IdentityStoreResourceModel) ToIdentityStoreInput() raitoType.IdentitySt
 	return raitoType.IdentityStoreInput{
 		Name:        m.Name.ValueStringPointer(),
 		Description: m.Description.ValueStringPointer(),
-		Master:      m.Master.ValueBoolPointer(),
 	}
 }
 
@@ -45,11 +44,11 @@ func NewIdentityStoreResource() resource.Resource {
 	return &IdentityStoreResource{}
 }
 
-func (i *IdentityStoreResource) Metadata(ctx context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
+func (i *IdentityStoreResource) Metadata(_ context.Context, request resource.MetadataRequest, response *resource.MetadataResponse) {
 	response.TypeName = request.ProviderTypeName + "_identitystore"
 }
 
-func (i *IdentityStoreResource) Schema(ctx context.Context, request resource.SchemaRequest, response *resource.SchemaResponse) {
+func (i *IdentityStoreResource) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
 	response.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -125,6 +124,13 @@ func (i *IdentityStoreResource) Create(ctx context.Context, request resource.Cre
 
 	data.Id = types.StringValue(isResult.Id)
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+	_, err = i.client.IdentityStore().UpdateIdentityStoreMasterFlag(ctx, isResult.Id, data.Master.ValueBool())
+	if err != nil {
+		response.Diagnostics.AddError("Failed to update identity store master flag", err.Error())
+
+		return
+	}
 }
 
 func (i *IdentityStoreResource) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
@@ -175,6 +181,13 @@ func (i *IdentityStoreResource) Update(ctx context.Context, request resource.Upd
 	}
 
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+	_, err = i.client.IdentityStore().UpdateIdentityStoreMasterFlag(ctx, data.Id.ValueString(), data.Master.ValueBool())
+	if err != nil {
+		response.Diagnostics.AddError("Failed to update identity store master flag", err.Error())
+
+		return
+	}
 }
 
 func (i *IdentityStoreResource) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {

@@ -7,8 +7,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/sdk"
 	raitoType "github.com/raito-io/sdk/types"
@@ -28,9 +26,6 @@ type PurposeResourceModel struct {
 	Who         types.Set            `tfsdk:"who"`
 	Owners      types.Set            `tfsdk:"owners"`
 	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
-
-	// PurposeResourceModel properties.
-	Type types.String `tfsdk:"type"`
 }
 
 func (p *PurposeResourceModel) GetAccessProviderResourceModel() *AccessProviderResourceModel {
@@ -62,7 +57,6 @@ func (p *PurposeResourceModel) ToAccessProviderInput(ctx context.Context, client
 		return diagnostics
 	}
 
-	result.Type = p.Type.ValueStringPointer()
 	result.Action = utils.Ptr(models.AccessProviderActionPurpose)
 
 	return diagnostics
@@ -77,7 +71,6 @@ func (p *PurposeResourceModel) FromAccessProvider(_ context.Context, _ *sdk.Rait
 	}
 
 	p.SetAccessProviderResourceModel(apResourceModel)
-	p.Type = types.StringPointerValue(input.Type)
 
 	return diagnostics
 }
@@ -100,19 +93,8 @@ func (p *PurposeResource) Metadata(_ context.Context, request resource.MetadataR
 	response.TypeName = request.ProviderTypeName + "_purpose"
 }
 
-func (p *PurposeResource) Schema(_ context.Context, request resource.SchemaRequest, response *resource.SchemaResponse) {
+func (p *PurposeResource) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
 	attributes := p.schema("purpose")
-	attributes["type"] = schema.StringAttribute{
-		Required:            false,
-		Optional:            true,
-		Computed:            true,
-		Sensitive:           false,
-		Description:         "The type of the purpose",
-		MarkdownDescription: "The type of the purpose",
-		PlanModifiers: []planmodifier.String{
-			stringplanmodifier.UseStateForUnknown(),
-		},
-	}
 
 	response.Schema = schema.Schema{
 		Attributes:          attributes,

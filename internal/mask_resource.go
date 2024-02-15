@@ -76,6 +76,13 @@ func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *s
 	result.Action = utils.Ptr(models.AccessProviderActionMask)
 
 	if !m.Columns.IsNull() && !m.Columns.IsUnknown() {
+		result.Locks = append(result.Locks, raitoType.AccessProviderLockDataInput{
+			LockKey: raitoType.AccessProviderLockWhatlock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		})
+
 		elements := m.Columns.Elements()
 
 		result.WhatDataObjects = make([]raitoType.AccessProviderWhatInputDO, 0, len(elements))
@@ -91,6 +98,13 @@ func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *s
 			})
 		}
 	} else if !m.WhatAbacRule.IsNull() {
+		result.Locks = append(result.Locks, raitoType.AccessProviderLockDataInput{
+			LockKey: raitoType.AccessProviderLockWhatlock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		})
+
 		diagnostics.Append(m.abacWhatToAccessProviderInput(ctx, client, result)...)
 
 		if diagnostics.HasError() {
@@ -111,16 +125,16 @@ func (m *MaskResourceModel) FromAccessProvider(ctx context.Context, client *sdk.
 
 	m.SetAccessProviderResourceModel(apResourceModel)
 
-	if len(input.DataSources) != 1 {
-		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(input.DataSources)))
+	if len(input.SyncData) != 1 {
+		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(input.SyncData)))
 
 		return diagnostics
 	}
 
-	m.DataSource = types.StringValue(input.DataSources[0].Id)
+	m.DataSource = types.StringValue(input.SyncData[0].DataSource.Id)
 
-	if input.Type == nil {
-		maskType, err := client.DataSource().GetMaskingMetadata(ctx, input.DataSources[0].Id)
+	if input.SyncData[0].Type == nil {
+		maskType, err := client.DataSource().GetMaskingMetadata(ctx, input.SyncData[0].DataSource.Id)
 		if err != nil {
 			diagnostics.AddError("Failed to get default mask type", err.Error())
 
@@ -129,7 +143,7 @@ func (m *MaskResourceModel) FromAccessProvider(ctx context.Context, client *sdk.
 
 		m.Type = types.StringPointerValue(maskType.DefaultMaskExternalName)
 	} else {
-		m.Type = types.StringPointerValue(input.Type)
+		m.Type = types.StringPointerValue(input.SyncData[0].Type)
 	}
 
 	if input.WhatType == raitoType.WhoAndWhatTypeDynamic && input.WhatAbacRule != nil {

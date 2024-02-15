@@ -22,7 +22,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/raito-io/golang-set/set"
 	"github.com/raito-io/sdk"
 	"github.com/raito-io/sdk/services"
@@ -35,6 +34,7 @@ import (
 
 const (
 	ownerRole = "OwnerRole"
+	lockMsg   = "Locked by terraform"
 )
 
 type AccessProviderResourceModel struct {
@@ -232,14 +232,6 @@ func (a *AccessProviderResource[T, ApModel]) create(ctx context.Context, data Ap
 		response.Diagnostics.AddError("Failed to create access provider", err.Error())
 
 		return
-	}
-
-	tflog.Info(ctx, fmt.Sprintf("Created access provider %s: %+v", ap.Id, ap))
-
-	if ap.Type == nil {
-		tflog.Info(ctx, fmt.Sprintf("Created access provider %s: type is nil", ap.Id))
-	} else {
-		tflog.Info(ctx, fmt.Sprintf("Created access provider %s: type is %s", ap.Id, *ap.Type))
 	}
 
 	response.Diagnostics.Append(data.FromAccessProvider(ctx, a.client, ap)...)
@@ -643,7 +635,7 @@ func (a *AccessProviderResource[T, ApModel]) Delete(ctx context.Context, request
 
 	apModel := ApModel(&data)
 
-	err := a.client.AccessProvider().DeleteAccessProvider(ctx, apModel.GetAccessProviderResourceModel().Id.ValueString())
+	err := a.client.AccessProvider().DeleteAccessProvider(ctx, apModel.GetAccessProviderResourceModel().Id.ValueString(), services.WithAccessProviderOverrideLocks())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete access provider", err.Error())
 
@@ -788,14 +780,54 @@ func (a *AccessProviderResource[T, ApModel]) readOwners(ctx context.Context, apI
 func (a *AccessProviderResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) (diagnostics diag.Diagnostics) {
 	result.Name = a.Name.ValueStringPointer()
 	result.Description = a.Description.ValueStringPointer()
+	result.Locks = append(result.Locks,
+		raitoType.AccessProviderLockDataInput{
+			LockKey: raitoType.AccessProviderLockDeletelock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		},
+		raitoType.AccessProviderLockDataInput{
+			LockKey: raitoType.AccessProviderLockNamelock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		},
+	)
 
 	result.WhoType = utils.Ptr(raitoType.WhoAndWhatTypeStatic)
 
+	whoLocks := []raitoType.AccessProviderLockDataInput{
+		{
+			LockKey: raitoType.AccessProviderLockWholock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		},
+		{
+			LockKey: raitoType.AccessProviderLockInheritancelock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		},
+	}
+
 	if !a.Who.IsNull() && !a.Who.IsUnknown() {
 		diagnostics.Append(a.whoElementsToAccessProviderInput(ctx, client, result)...)
+		result.Locks = append(result.Locks, whoLocks...)
 	} else if !a.WhoAbacRule.IsNull() && !a.WhoAbacRule.IsUnknown() {
 		result.WhoType = utils.Ptr(raitoType.WhoAndWhatTypeDynamic)
 		diagnostics.Append(a.whoAbacRuleToAccessProviderInput(result)...)
+		result.Locks = append(result.Locks, whoLocks...)
+	}
+
+	if !a.Owners.IsNull() {
+		result.Locks = append(result.Locks, raitoType.AccessProviderLockDataInput{
+			LockKey: raitoType.AccessProviderLockOwnerlock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		})
 	}
 
 	return diagnostics

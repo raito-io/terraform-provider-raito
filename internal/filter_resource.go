@@ -70,6 +70,13 @@ func (f *FilterResourceModel) ToAccessProviderInput(ctx context.Context, client 
 	result.PolicyRule = f.FilterPolicy.ValueStringPointer()
 
 	if !f.Table.IsNull() && !f.Table.IsUnknown() {
+		result.Locks = append(result.Locks, raitoType.AccessProviderLockDataInput{
+			LockKey: raitoType.AccessProviderLockWhatlock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		})
+
 		result.WhatDataObjects = []raitoType.AccessProviderWhatInputDO{
 			{
 				DataObjectByName: []raitoType.AccessProviderWhatDoByNameInput{
@@ -95,13 +102,13 @@ func (f *FilterResourceModel) FromAccessProvider(_ context.Context, _ *sdk.Raito
 
 	f.SetAccessProviderResourceModel(apResourceModel)
 
-	if len(input.DataSources) != 1 {
-		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(input.DataSources)))
+	if len(input.SyncData) != 1 {
+		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(input.SyncData)))
 
 		return diagnostics
 	}
 
-	f.DataSource = types.StringValue(input.DataSources[0].Id)
+	f.DataSource = types.StringValue(input.SyncData[0].DataSource.Id)
 	f.FilterPolicy = types.StringPointerValue(input.PolicyRule)
 
 	return diagnostics

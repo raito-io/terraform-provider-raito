@@ -12,7 +12,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/sdk"
@@ -80,14 +82,24 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 	result.Action = utils.Ptr(models.AccessProviderActionGrant)
 	result.WhatType = utils.Ptr(raitoType.WhoAndWhatTypeStatic)
 
+	whatLockInput := raitoType.AccessProviderLockDataInput{
+		LockKey: raitoType.AccessProviderLockWhatlock,
+		Details: &raitoType.AccessProviderLockDetailsInput{
+			Reason: utils.Ptr(lockMsg),
+		},
+	}
+
 	if !m.WhatDataObjects.IsNull() && !m.WhatDataObjects.IsUnknown() {
 		m.whatDoToApInput(result)
+		result.Locks = append(result.Locks, whatLockInput)
 	} else if !m.WhatAbacRule.IsNull() {
 		diagnostics.Append(m.abacWhatToAccessProviderInput(ctx, client, result)...)
 
 		if diagnostics.HasError() {
 			return diagnostics
 		}
+
+		result.Locks = append(result.Locks, whatLockInput)
 	}
 
 	return diagnostics
@@ -141,15 +153,15 @@ func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk
 	}
 
 	m.SetAccessProviderResourceModel(apResourceModel)
-	m.Type = types.StringPointerValue(ap.Type)
 
-	if len(ap.DataSources) != 1 {
-		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(ap.DataSources)))
+	if len(ap.SyncData) != 1 {
+		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(ap.SyncData)))
 
 		return diagnostics
 	}
 
-	m.DataSource = types.StringValue(ap.DataSources[0].Id)
+	m.DataSource = types.StringValue(ap.SyncData[0].DataSource.Id)
+	m.Type = types.StringPointerValue(ap.SyncData[0].Type)
 
 	if ap.WhatType == raitoType.WhoAndWhatTypeDynamic && ap.WhatAbacRule != nil {
 		object, objectDiagnostics := m.abacWhatFromAccessProvider(ctx, client, ap)
@@ -342,6 +354,9 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 		Sensitive:           false,
 		Description:         "The type of the grant",
 		MarkdownDescription: "The type of the grant",
+		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.RequiresReplace(),
+		},
 	}
 	attributes["data_source"] = schema.StringAttribute{
 		Required:            true,

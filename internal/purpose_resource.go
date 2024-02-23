@@ -19,26 +19,28 @@ var _ resource.Resource = (*PurposeResource)(nil)
 
 type PurposeResourceModel struct {
 	// AccessProviderResourceModel properties. This has to be duplicated because of https://github.com/hashicorp/terraform-plugin-framework/issues/242
-	Id          types.String         `tfsdk:"id"`
-	Name        types.String         `tfsdk:"name"`
-	Description types.String         `tfsdk:"description"`
-	State       types.String         `tfsdk:"state"`
-	Who         types.Set            `tfsdk:"who"`
-	Owners      types.Set            `tfsdk:"owners"`
-	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
-	WhoLocked   types.Bool           `tfsdk:"who_locked"`
+	Id                types.String         `tfsdk:"id"`
+	Name              types.String         `tfsdk:"name"`
+	Description       types.String         `tfsdk:"description"`
+	State             types.String         `tfsdk:"state"`
+	Who               types.Set            `tfsdk:"who"`
+	Owners            types.Set            `tfsdk:"owners"`
+	WhoAbacRule       jsontypes.Normalized `tfsdk:"who_abac_rule"`
+	WhoLocked         types.Bool           `tfsdk:"who_locked"`
+	InheritanceLocked types.Bool           `tfsdk:"inheritance_locked"`
 }
 
 func (p *PurposeResourceModel) GetAccessProviderResourceModel() *AccessProviderResourceModel {
 	return &AccessProviderResourceModel{
-		Id:          p.Id,
-		Name:        p.Name,
-		Description: p.Description,
-		State:       p.State,
-		Who:         p.Who,
-		Owners:      p.Owners,
-		WhoAbacRule: p.WhoAbacRule,
-		WhoLocked:   p.WhoLocked,
+		Id:                p.Id,
+		Name:              p.Name,
+		Description:       p.Description,
+		State:             p.State,
+		Who:               p.Who,
+		Owners:            p.Owners,
+		WhoAbacRule:       p.WhoAbacRule,
+		WhoLocked:         p.WhoLocked,
+		InheritanceLocked: p.InheritanceLocked,
 	}
 }
 
@@ -51,6 +53,7 @@ func (p *PurposeResourceModel) SetAccessProviderResourceModel(model *AccessProvi
 	p.Owners = model.Owners
 	p.WhoAbacRule = model.WhoAbacRule
 	p.WhoLocked = model.WhoLocked
+	p.InheritanceLocked = model.InheritanceLocked
 }
 
 func (p *PurposeResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {

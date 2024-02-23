@@ -43,6 +43,7 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.user", "terraform@raito.io"),
 						resource.TestCheckNoResourceAttr("raito_purpose.purpose1", "what.0.promise_duration"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "inheritance_locked", "false"),
 					),
 				},
 				{
@@ -67,6 +68,7 @@ resource "raito_purpose" "purpose1" {
 			promise_duration = 604800
 		}
     ]
+	inheritance_locked = true
 }
 `,
 					Check: resource.ComposeAggregateTestCheckFunc(
@@ -76,6 +78,7 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.user", "terraform@raito.io"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.promise_duration", "604800"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "inheritance_locked", "true"),
 					),
 				},
 				{
@@ -142,6 +145,7 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "description", "updated terraform purpose"),
 						resource.TestCheckNoResourceAttr("raito_purpose.purpose1", "who"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "false"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "inheritance_locked", "false"),
 					),
 				},
 				{
@@ -162,6 +166,7 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "description", "updated terraform purpose"),
 						resource.TestCheckNoResourceAttr("raito_purpose.purpose1", "who"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "inheritance_locked", "false"),
 					),
 				},
 			},

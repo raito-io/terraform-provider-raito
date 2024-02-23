@@ -25,14 +25,15 @@ var _ resource.Resource = (*MaskResource)(nil)
 
 type MaskResourceModel struct {
 	// AccessProviderResourceModel properties. This has to be duplicated because of https://github.com/hashicorp/terraform-plugin-framework/issues/242
-	Id          types.String         `tfsdk:"id"`
-	Name        types.String         `tfsdk:"name"`
-	Description types.String         `tfsdk:"description"`
-	State       types.String         `tfsdk:"state"`
-	Who         types.Set            `tfsdk:"who"`
-	Owners      types.Set            `tfsdk:"owners"`
-	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
-	WhoLocked   types.Bool           `tfsdk:"who_locked"`
+	Id                types.String         `tfsdk:"id"`
+	Name              types.String         `tfsdk:"name"`
+	Description       types.String         `tfsdk:"description"`
+	State             types.String         `tfsdk:"state"`
+	Who               types.Set            `tfsdk:"who"`
+	Owners            types.Set            `tfsdk:"owners"`
+	WhoAbacRule       jsontypes.Normalized `tfsdk:"who_abac_rule"`
+	WhoLocked         types.Bool           `tfsdk:"who_locked"`
+	InheritanceLocked types.Bool           `tfsdk:"inheritance_locked"`
 
 	// MaskResourceModel properties.
 	Type         types.String `tfsdk:"type"`
@@ -44,14 +45,15 @@ type MaskResourceModel struct {
 
 func (m *MaskResourceModel) GetAccessProviderResourceModel() *AccessProviderResourceModel {
 	return &AccessProviderResourceModel{
-		Id:          m.Id,
-		Name:        m.Name,
-		Description: m.Description,
-		State:       m.State,
-		Who:         m.Who,
-		Owners:      m.Owners,
-		WhoAbacRule: m.WhoAbacRule,
-		WhoLocked:   m.WhoLocked,
+		Id:                m.Id,
+		Name:              m.Name,
+		Description:       m.Description,
+		State:             m.State,
+		Who:               m.Who,
+		Owners:            m.Owners,
+		WhoAbacRule:       m.WhoAbacRule,
+		WhoLocked:         m.WhoLocked,
+		InheritanceLocked: m.InheritanceLocked,
 	}
 }
 
@@ -64,6 +66,7 @@ func (m *MaskResourceModel) SetAccessProviderResourceModel(ap *AccessProviderRes
 	m.Owners = ap.Owners
 	m.WhoAbacRule = ap.WhoAbacRule
 	m.WhoLocked = ap.WhoLocked
+	m.InheritanceLocked = ap.InheritanceLocked
 }
 
 func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {

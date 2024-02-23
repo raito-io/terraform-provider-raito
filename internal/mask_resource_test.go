@@ -48,6 +48,7 @@ resource "raito_mask" "test" {
 						resource.TestCheckResourceAttr("raito_mask.test", "who.0.promise_duration", "604800"),
 						resource.TestCheckResourceAttr("raito_mask.test", "type", "NULL"),
 						resource.TestCheckResourceAttr("raito_mask.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.test", "inheritance_locked", "false"),
 						resource.TestCheckResourceAttr("raito_mask.test", "what_locked", "true"),
 					),
 				},
@@ -71,6 +72,7 @@ resource "raito_mask" "test" {
        user             = "terraform@raito.io"
      }
    ]
+	inheritance_locked = true
 }
 `,
 					Check: resource.ComposeAggregateTestCheckFunc(
@@ -83,6 +85,7 @@ resource "raito_mask" "test" {
 						resource.TestCheckNoResourceAttr("raito_mask.test", "who.0.promise_duration"),
 						resource.TestCheckResourceAttr("raito_mask.test", "type", "NULL"),
 						resource.TestCheckResourceAttr("raito_mask.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.test", "inheritance_locked", "true"),
 						resource.TestCheckResourceAttr("raito_mask.test", "what_locked", "false"),
 					),
 				},
@@ -133,6 +136,7 @@ resource "raito_mask" "test" {
 						resource.TestCheckResourceAttr("raito_mask.test", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
 						resource.TestCheckResourceAttr("raito_mask.test", "type", "NULL"),
 						resource.TestCheckResourceAttr("raito_mask.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.test", "inheritance_locked", "false"),
 						resource.TestCheckResourceAttr("raito_mask.test", "what_locked", "false"),
 					),
 				},
@@ -184,6 +188,7 @@ resource "raito_mask" "test" {
 						resource.TestCheckResourceAttr("raito_mask.test", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
 						resource.TestCheckResourceAttr("raito_mask.test", "type", "NULL"),
 						resource.TestCheckResourceAttr("raito_mask.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.test", "inheritance_locked", "false"),
 						resource.TestCheckResourceAttr("raito_mask.test", "what_locked", "true"),
 					),
 				},
@@ -243,6 +248,7 @@ resource "raito_mask" "abac_mask" {
 						resource.TestCheckResourceAttr("raito_mask.abac_mask", "type", "NULL"),
 						resource.TestCheckResourceAttr("raito_mask.abac_mask", "what_abac_rule.rule", "{\"literal\":true}"),
 						resource.TestCheckResourceAttr("raito_mask.abac_mask", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.abac_mask", "inheritance_locked", "false"),
 						resource.TestCheckResourceAttr("raito_mask.abac_mask", "what_locked", "true"),
 					),
 				},

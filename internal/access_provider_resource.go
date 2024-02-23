@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"slices"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -39,13 +38,14 @@ const (
 )
 
 type AccessProviderResourceModel struct {
-	Id          types.String
-	Name        types.String
-	Description types.String
-	State       types.String
-	Who         types.Set
-	WhoAbacRule jsontypes.Normalized
-	WhoLocked   types.Bool
+	Id                types.String
+	Name              types.String
+	Description       types.String
+	State             types.String
+	Who               types.Set
+	WhoAbacRule       jsontypes.Normalized
+	WhoLocked         types.Bool
+	InheritanceLocked types.Bool
 
 	Owners types.Set
 }
@@ -189,8 +189,17 @@ func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]
 			Optional:            true,
 			Computed:            true,
 			Sensitive:           false,
-			Description:         "Indicates if who should be locked. This should be true if who or who_abac_rule is set.",
-			MarkdownDescription: "Indicates if who should be locked. This should be true if who or who_abac_rule is set.",
+			Description:         "Indicates if who should be locked. This should be true if who users, who groups, or who_abac_rule is set.",
+			MarkdownDescription: "Indicates if who should be locked. This should be true if who users, who groups, or who_abac_rule is set.",
+			Validators:          nil,
+		},
+		"inheritance_locked": schema.BoolAttribute{
+			Required:            false,
+			Optional:            true,
+			Computed:            true,
+			Sensitive:           false,
+			Description:         "Indicates if who should be locked. This should be true if who access providers are set.",
+			MarkdownDescription: "Indicates if who should be locked. This should be true if who access providers are set.",
 			Validators:          nil,
 		},
 		"owners": schema.SetAttribute{
@@ -707,6 +716,9 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 	who := &apResourceModel.Who
 	whoAbac := &apResourceModel.WhoAbacRule
 
+	whoGroupsOrUsersDefined := false
+	whoAccessProvidersDefined := false
+
 	if !who.IsNull() && !whoAbac.IsNull() {
 		response.Diagnostics.AddError(
 			"Cannot specify both who and who_abac",
@@ -720,15 +732,16 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 
 			attributesFound := 0
 
-			attrFn := func(key string) {
+			attrFn := func(key string, indicator *bool) {
 				if attribute, found := attributes[key]; found && !attribute.IsNull() {
 					attributesFound++
+					*indicator = true
 				}
 			}
 
-			attrFn("user")
-			attrFn("group")
-			attrFn("access_control")
+			attrFn("user", &whoGroupsOrUsersDefined)
+			attrFn("group", &whoGroupsOrUsersDefined)
+			attrFn("access_control", &whoAccessProvidersDefined)
 
 			if attributesFound != 1 {
 				response.Diagnostics.AddError(
@@ -741,9 +754,15 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 		}
 	}
 
-	if !who.IsNull() || !whoAbac.IsNull() {
+	if whoGroupsOrUsersDefined || !whoAbac.IsNull() {
 		if !apResourceModel.WhoLocked.IsNull() && !apResourceModel.WhoLocked.ValueBool() {
-			response.Diagnostics.AddError("Who must be locked", "Who must be locked if who or who_abac_rule is set.")
+			response.Diagnostics.AddError("Who must be locked", "Who must be locked if who users, who groups or who_abac_rule is set.")
+		}
+	}
+
+	if whoAccessProvidersDefined {
+		if !apResourceModel.InheritanceLocked.IsNull() && !apResourceModel.InheritanceLocked.ValueBool() {
+			response.Diagnostics.AddError("Inheritance must be locked", "Inheritance must be locked if who access providers are set.")
 		}
 	}
 
@@ -809,10 +828,37 @@ func (a *AccessProviderResource[T, ApModel]) ModifyPlan(ctx context.Context, req
 	apModel := ApModel(&data)
 	apResourceModel := apModel.GetAccessProviderResourceModel()
 
-	if !apResourceModel.Who.IsNull() || !apResourceModel.WhoAbacRule.IsNull() {
+	whoGroupsOrUsersDefined := false
+	whoAccessProvidersDefined := false
+
+	if !apResourceModel.Who.IsNull() {
+		for _, whoItem := range apResourceModel.Who.Elements() {
+			whoItemAttribute := whoItem.(types.Object)
+
+			attributes := whoItemAttribute.Attributes()
+
+			attrFn := func(key string, indicator *bool) {
+				if attribute, found := attributes[key]; found && !attribute.IsNull() {
+					*indicator = true
+				}
+			}
+
+			attrFn("user", &whoGroupsOrUsersDefined)
+			attrFn("group", &whoGroupsOrUsersDefined)
+			attrFn("access_control", &whoAccessProvidersDefined)
+		}
+	}
+
+	if whoGroupsOrUsersDefined || !apResourceModel.WhoAbacRule.IsNull() {
 		apResourceModel.WhoLocked = types.BoolValue(true)
 	} else if apResourceModel.WhoLocked.IsUnknown() {
 		apResourceModel.WhoLocked = types.BoolValue(false)
+	}
+
+	if whoAccessProvidersDefined {
+		apResourceModel.InheritanceLocked = types.BoolValue(true)
+	} else if apResourceModel.InheritanceLocked.IsUnknown() {
+		apResourceModel.InheritanceLocked = types.BoolValue(false)
 	}
 
 	apModel.SetAccessProviderResourceModel(apResourceModel)
@@ -858,19 +904,26 @@ func (a *AccessProviderResourceModel) ToAccessProviderInput(ctx context.Context,
 		diagnostics.Append(a.whoAbacRuleToAccessProviderInput(result)...)
 	}
 
-	if !a.WhoLocked.IsNull() && a.WhoLocked.ValueBool() {
-		result.Locks = append(result.Locks, raitoType.AccessProviderLockDataInput{
-			LockKey: raitoType.AccessProviderLockWholock,
-			Details: &raitoType.AccessProviderLockDetailsInput{
-				Reason: utils.Ptr(lockMsg),
+	if a.WhoLocked.ValueBool() {
+		result.Locks = append(result.Locks,
+			raitoType.AccessProviderLockDataInput{
+				LockKey: raitoType.AccessProviderLockWholock,
+				Details: &raitoType.AccessProviderLockDetailsInput{
+					Reason: utils.Ptr(lockMsg),
+				},
 			},
-		},
+		)
+	}
+
+	if a.InheritanceLocked.ValueBool() {
+		result.Locks = append(result.Locks,
 			raitoType.AccessProviderLockDataInput{
 				LockKey: raitoType.AccessProviderLockInheritancelock,
 				Details: &raitoType.AccessProviderLockDetailsInput{
 					Reason: utils.Ptr(lockMsg),
 				},
-			})
+			},
+		)
 	}
 
 	if !a.Owners.IsNull() {
@@ -959,9 +1012,18 @@ func (a *AccessProviderResourceModel) FromAccessProvider(ap *raitoType.AccessPro
 	a.Name = types.StringValue(ap.Name)
 	a.Description = types.StringValue(ap.Description)
 	a.State = types.StringValue(ap.State.String())
-	a.WhoLocked = types.BoolValue(slices.ContainsFunc(ap.Locks, func(data raitoType.AccessProviderLocksAccessProviderLockData) bool {
-		return data.LockKey == raitoType.AccessProviderLockWholock
-	}))
+
+	a.WhoLocked = types.BoolValue(false)
+	a.InheritanceLocked = types.BoolValue(false)
+
+	for _, lock := range ap.Locks {
+		switch lock.LockKey {
+		case raitoType.AccessProviderLockWholock:
+			a.WhoLocked = types.BoolValue(true)
+		case raitoType.AccessProviderLockInheritancelock:
+			a.InheritanceLocked = types.BoolValue(true)
+		}
+	}
 
 	return diagnostics
 }

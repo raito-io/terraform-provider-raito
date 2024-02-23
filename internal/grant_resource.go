@@ -344,7 +344,7 @@ func NewGrantResource() resource.Resource {
 		AccessProviderResource[GrantResourceModel, *GrantResourceModel]{
 			readHooks:      []ReadHook[GrantResourceModel, *GrantResourceModel]{readGrantWhatItems},
 			validationHoos: []ValidationHook[GrantResourceModel, *GrantResourceModel]{validateGrantWhatItems},
-			planModifier: []PlanModifierHook[GrantResourceModel, *GrantResourceModel]{grantModifyPlan},
+			planModifier:   []PlanModifierHook[GrantResourceModel, *GrantResourceModel]{grantModifyPlan},
 		},
 	}
 }

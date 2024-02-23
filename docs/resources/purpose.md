@@ -50,10 +50,12 @@ resource "raito_purpose" "example_purpose" {
 ### Optional
 
 - `description` (String) The description of the purpose
+- `inheritance_locked` (Boolean) Indicates if who should be locked. This should be true if who access providers are set.
 - `owners` (Set of String) User id of the owners of this purpose
 - `state` (String) The state of the purpose Possible values are: ["Active", "Inactive"]
 - `who` (Attributes Set) The who-items associated with the purpose. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
 - `who_abac_rule` (String) json representation of the abac rule for who-items associated with the purpose
+- `who_locked` (Boolean) Indicates if who should be locked. This should be true if who users, who groups, or who_abac_rule is set.
 
 ### Read-Only
 

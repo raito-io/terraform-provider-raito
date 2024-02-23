@@ -50,6 +50,9 @@ resource "raito_grant" "test" {
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.0.user", "terraform@raito.io"),
+						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "inheritance_locked", "false"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_locked", "true"),
 					),
 				},
 				{
@@ -80,6 +83,7 @@ resource "raito_grant" "test" {
 			"user": "terraform@raito.io"
 		}
 	]
+	inheritance_locked = true
 }
 `),
 					Check: resource.ComposeAggregateTestCheckFunc(
@@ -92,6 +96,63 @@ resource "raito_grant" "test" {
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.permissions.0", "SELECT"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.0.user", "terraform@raito.io"),
+						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "inheritance_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_locked", "true"),
+					),
+				},
+				{
+					Config: providerConfig + fmt.Sprintf(`
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+resource "raito_grant" "test" {
+	name        = "tfTestGrant"
+    description = "test description"
+	data_source = data.raito_datasource.ds.id
+	state = "Inactive"
+	what_locked = true
+	who_locked = true
+	inheritance_locked = true
+}
+`),
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
+						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckNoResourceAttr("raito_grant.test", "what_data_objects"),
+						resource.TestCheckNoResourceAttr("raito_grant.test", "who"),
+						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "inheritance_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_locked", "true"),
+					),
+				},
+				{
+					Config: providerConfig + fmt.Sprintf(`
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+resource "raito_grant" "test" {
+	name        = "tfTestGrant"
+    description = "test description"
+	data_source = data.raito_datasource.ds.id
+	state = "Inactive"
+	what_locked = false
+	who_locked = false
+	inheritance_locked = false
+}
+`),
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
+						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckNoResourceAttr("raito_grant.test", "what_data_objects"),
+						resource.TestCheckNoResourceAttr("raito_grant.test", "who"),
+						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "false"),
+						resource.TestCheckResourceAttr("raito_grant.test", "inheritance_locked", "false"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_locked", "false"),
 					),
 				},
 			},
@@ -150,6 +211,9 @@ resource "raito_grant" "test" {
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),
 						resource.TestCheckResourceAttrPair("raito_grant.test", "who.0.access_control", "raito_purpose.purpose1", "id"),
+						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "false"),
+						resource.TestCheckResourceAttr("raito_grant.test", "inheritance_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_locked", "true"),
 					),
 				},
 				{
@@ -170,7 +234,7 @@ resource "raito_purpose" "purpose1" {
 }
 
 resource "raito_grant" "test" {
-	name        = "tfTestGrantDEZE!"
+	name        = "tfTestGrant"
     description = "test description"
 	data_source = data.raito_datasource.ds.id
 	what_data_objects = [
@@ -189,12 +253,15 @@ resource "raito_grant" "test" {
 }
 `,
 					Check: resource.ComposeAggregateTestCheckFunc(
-						//resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
+						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
 						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "2"),
+						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "inheritance_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "what_locked", "true"),
 					),
 				},
 			},
@@ -250,6 +317,8 @@ resource "raito_grant" "abac_grant" {
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.0", "READ"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.0.user", "terraform@raito.io"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_locked", "true"),
 					),
 				},
 				{
@@ -302,6 +371,9 @@ resource "raito_grant" "abac_grant" {
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.do_types.#", "2"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.0.user", "terraform@raito.io"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "inheritance_locked", "false"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_locked", "true"),
 					),
 				},
 			},
@@ -371,6 +443,9 @@ resource "raito_grant" "who_abac_grant" {
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckNoResourceAttr("raito_grant.who_abac_grant", "who"),
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "inheritance_locked", "false"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_locked", "true"),
 					),
 				},
 				{
@@ -378,6 +453,64 @@ resource "raito_grant" "who_abac_grant" {
 					ImportState:             true,
 					ImportStateVerify:       true,
 					ImportStateVerifyIgnore: []string{"who", "what_data_objects"},
+				},
+				{
+					Config: providerConfig + `
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+locals {
+	abac_rule = jsonencode({
+		aggregator: {
+			operator: "Or",
+			operands: [
+				{
+					aggregator: {
+						operator: "And",
+						operands: [
+							{
+								comparison: {
+									operator: "HasTag"
+									leftOperand: "Test"
+									rightOperand: {
+										literal: { string: "test" }
+									}
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	})
+}
+
+resource "raito_grant" "who_abac_grant" {
+	name        = "tfTestGrant"
+    description = "test description"
+	data_source = data.raito_datasource.ds.id
+	what_data_objects = [
+		{
+			"fullname": "MASTER_DATA.SALES"
+		}
+	]
+	who_abac_rule = local.abac_rule
+	inheritance_locked = true
+}
+`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "name", "tfTestGrant"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "description", "test description"),
+						resource.TestCheckResourceAttrPair("raito_grant.who_abac_grant", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
+						resource.TestCheckNoResourceAttr("raito_grant.who_abac_grant", "who"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "inheritance_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_locked", "true"),
+					),
 				},
 			},
 		})

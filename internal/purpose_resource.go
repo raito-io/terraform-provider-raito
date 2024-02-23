@@ -26,6 +26,7 @@ type PurposeResourceModel struct {
 	Who         types.Set            `tfsdk:"who"`
 	Owners      types.Set            `tfsdk:"owners"`
 	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
+	WhoLocked   types.Bool           `tfsdk:"who_locked"`
 }
 
 func (p *PurposeResourceModel) GetAccessProviderResourceModel() *AccessProviderResourceModel {
@@ -37,6 +38,7 @@ func (p *PurposeResourceModel) GetAccessProviderResourceModel() *AccessProviderR
 		Who:         p.Who,
 		Owners:      p.Owners,
 		WhoAbacRule: p.WhoAbacRule,
+		WhoLocked:   p.WhoLocked,
 	}
 }
 
@@ -48,6 +50,7 @@ func (p *PurposeResourceModel) SetAccessProviderResourceModel(model *AccessProvi
 	p.Who = model.Who
 	p.Owners = model.Owners
 	p.WhoAbacRule = model.WhoAbacRule
+	p.WhoLocked = model.WhoLocked
 }
 
 func (p *PurposeResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {

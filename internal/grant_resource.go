@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
@@ -37,12 +38,14 @@ type GrantResourceModel struct {
 	Who         types.Set            `tfsdk:"who"`
 	Owners      types.Set            `tfsdk:"owners"`
 	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
+	WhoLocked   types.Bool           `tfsdk:"who_locked"`
 
 	// GrantResourceModel properties.
 	Type            types.String `tfsdk:"type"`
 	DataSource      types.String `tfsdk:"data_source"`
 	WhatDataObjects types.Set    `tfsdk:"what_data_objects"`
 	WhatAbacRule    types.Object `tfsdk:"what_abac_rule"`
+	WhatLocked      types.Bool   `tfsdk:"what_locked"`
 }
 
 func (m *GrantResourceModel) GetAccessProviderResourceModel() *AccessProviderResourceModel {
@@ -54,6 +57,7 @@ func (m *GrantResourceModel) GetAccessProviderResourceModel() *AccessProviderRes
 		Who:         m.Who,
 		Owners:      m.Owners,
 		WhoAbacRule: m.WhoAbacRule,
+		WhoLocked:   m.WhoLocked,
 	}
 }
 
@@ -65,6 +69,7 @@ func (m *GrantResourceModel) SetAccessProviderResourceModel(ap *AccessProviderRe
 	m.Who = ap.Who
 	m.Owners = ap.Owners
 	m.WhoAbacRule = ap.WhoAbacRule
+	m.WhoLocked = ap.WhoLocked
 }
 
 func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {
@@ -82,24 +87,23 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 	result.Action = utils.Ptr(models.AccessProviderActionGrant)
 	result.WhatType = utils.Ptr(raitoType.WhoAndWhatTypeStatic)
 
-	whatLockInput := raitoType.AccessProviderLockDataInput{
-		LockKey: raitoType.AccessProviderLockWhatlock,
-		Details: &raitoType.AccessProviderLockDetailsInput{
-			Reason: utils.Ptr(lockMsg),
-		},
-	}
-
 	if !m.WhatDataObjects.IsNull() && !m.WhatDataObjects.IsUnknown() {
 		m.whatDoToApInput(result)
-		result.Locks = append(result.Locks, whatLockInput)
 	} else if !m.WhatAbacRule.IsNull() {
 		diagnostics.Append(m.abacWhatToAccessProviderInput(ctx, client, result)...)
 
 		if diagnostics.HasError() {
 			return diagnostics
 		}
+	}
 
-		result.Locks = append(result.Locks, whatLockInput)
+	if m.WhatLocked.ValueBool() {
+		result.Locks = append(result.Locks, raitoType.AccessProviderLockDataInput{
+			LockKey: raitoType.AccessProviderLockWhatlock,
+			Details: &raitoType.AccessProviderLockDetailsInput{
+				Reason: utils.Ptr(lockMsg),
+			},
+		})
 	}
 
 	return diagnostics
@@ -162,6 +166,9 @@ func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk
 
 	m.DataSource = types.StringValue(ap.SyncData[0].DataSource.Id)
 	m.Type = types.StringPointerValue(ap.SyncData[0].Type)
+	m.WhatLocked = types.BoolValue(slices.ContainsFunc(ap.Locks, func(l raitoType.AccessProviderLocksAccessProviderLockData) bool {
+		return l.LockKey == raitoType.AccessProviderLockWhatlock
+	}))
 
 	if ap.WhatType == raitoType.WhoAndWhatTypeDynamic && ap.WhatAbacRule != nil {
 		object, objectDiagnostics := m.abacWhatFromAccessProvider(ctx, client, ap)
@@ -337,6 +344,7 @@ func NewGrantResource() resource.Resource {
 		AccessProviderResource[GrantResourceModel, *GrantResourceModel]{
 			readHooks:      []ReadHook[GrantResourceModel, *GrantResourceModel]{readGrantWhatItems},
 			validationHoos: []ValidationHook[GrantResourceModel, *GrantResourceModel]{validateGrantWhatItems},
+			planModifier: []PlanModifierHook[GrantResourceModel, *GrantResourceModel]{grantModifyPlan},
 		},
 	}
 }
@@ -482,6 +490,14 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 		Description:         "What data object defined by abac rule. Cannot be set when what_data_objects is set.",
 		MarkdownDescription: "What data object defined by abac rule. Cannot be set when what_data_objects is set.",
 	}
+	attributes["what_locked"] = schema.BoolAttribute{
+		Required:            false,
+		Optional:            true,
+		Computed:            true,
+		Sensitive:           false,
+		Description:         "Indicates whether it should lock the what. Should be set to true if what_data_objects or what_abac_rule is set.",
+		MarkdownDescription: "Indicates whether it should lock the what. Should be set to true if what_data_objects or what_abac_rule is set.",
+	}
 
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
@@ -571,9 +587,21 @@ func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *Gran
 func validateGrantWhatItems(_ context.Context, data *GrantResourceModel) (diagnostics diag.Diagnostics) {
 	if !data.WhatDataObjects.IsNull() && !data.WhatAbacRule.IsNull() {
 		diagnostics.AddError("Cannot set both what_data_objects and what_abac_rule", "Grant Resource cannot have both what_data_objects and what_abac_rule")
+	}
 
-		return diagnostics
+	if (!data.WhatDataObjects.IsNull() || !data.WhatAbacRule.IsNull()) && (!data.WhatLocked.IsNull() && !data.WhatLocked.ValueBool()) {
+		diagnostics.AddError("What lock should be true", "What data objects or what abac rule is set, so what lock should be true")
 	}
 
 	return diagnostics
+}
+
+func grantModifyPlan(_ context.Context, data *GrantResourceModel) (_ *GrantResourceModel, diagnostics diag.Diagnostics) {
+	if !data.WhatDataObjects.IsNull() || !data.WhatAbacRule.IsNull() {
+		data.WhatLocked = types.BoolValue(true)
+	} else if data.WhatLocked.IsUnknown() {
+		data.WhatLocked = types.BoolValue(false)
+	}
+
+	return data, diagnostics
 }

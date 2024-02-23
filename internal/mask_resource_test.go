@@ -47,6 +47,8 @@ resource "raito_mask" "test" {
 						resource.TestCheckResourceAttr("raito_mask.test", "who.0.user", "terraform@raito.io"),
 						resource.TestCheckResourceAttr("raito_mask.test", "who.0.promise_duration", "604800"),
 						resource.TestCheckResourceAttr("raito_mask.test", "type", "NULL"),
+						resource.TestCheckResourceAttr("raito_mask.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.test", "what_locked", "true"),
 					),
 				},
 				{
@@ -80,6 +82,8 @@ resource "raito_mask" "test" {
 						resource.TestCheckResourceAttr("raito_mask.test", "who.0.user", "terraform@raito.io"),
 						resource.TestCheckNoResourceAttr("raito_mask.test", "who.0.promise_duration"),
 						resource.TestCheckResourceAttr("raito_mask.test", "type", "NULL"),
+						resource.TestCheckResourceAttr("raito_mask.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.test", "what_locked", "false"),
 					),
 				},
 				{
@@ -128,6 +132,59 @@ resource "raito_mask" "test" {
 						resource.TestCheckNoResourceAttr("raito_mask.test", "who"),
 						resource.TestCheckResourceAttr("raito_mask.test", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
 						resource.TestCheckResourceAttr("raito_mask.test", "type", "NULL"),
+						resource.TestCheckResourceAttr("raito_mask.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.test", "what_locked", "false"),
+					),
+				},
+				{
+					Config: providerConfig + `data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+locals {
+	abac_rule = jsonencode({
+		aggregator: {
+			operator: "Or",
+			operands: [
+				{
+					aggregator: {
+						operator: "And",
+						operands: [
+							{
+								comparison: {
+									operator: "HasTag"
+									leftOperand: "Test"
+									rightOperand: {
+										literal: { string: "test" }
+									}
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	})
+}
+
+resource "raito_mask" "test" {
+	name        = "Terraform Mask name edit"
+    description = "test description"
+	data_source = data.raito_datasource.ds.id
+	who_abac_rule = local.abac_rule
+	what_locked = true
+}
+`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_mask.test", "name", "Terraform Mask name edit"),
+						resource.TestCheckResourceAttr("raito_mask.test", "description", "test description"),
+						resource.TestCheckResourceAttrPair("raito_mask.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckNoResourceAttr("raito_mask.test", "columns"),
+						resource.TestCheckNoResourceAttr("raito_mask.test", "who"),
+						resource.TestCheckResourceAttr("raito_mask.test", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
+						resource.TestCheckResourceAttr("raito_mask.test", "type", "NULL"),
+						resource.TestCheckResourceAttr("raito_mask.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.test", "what_locked", "true"),
 					),
 				},
 			},
@@ -185,6 +242,8 @@ resource "raito_mask" "abac_mask" {
 						resource.TestCheckResourceAttr("raito_mask.abac_mask", "who.0.promise_duration", "604800"),
 						resource.TestCheckResourceAttr("raito_mask.abac_mask", "type", "NULL"),
 						resource.TestCheckResourceAttr("raito_mask.abac_mask", "what_abac_rule.rule", "{\"literal\":true}"),
+						resource.TestCheckResourceAttr("raito_mask.abac_mask", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_mask.abac_mask", "what_locked", "true"),
 					),
 				},
 				{

@@ -42,6 +42,7 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.user", "terraform@raito.io"),
 						resource.TestCheckNoResourceAttr("raito_purpose.purpose1", "what.0.promise_duration"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "true"),
 					),
 				},
 				{
@@ -74,6 +75,7 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.#", "1"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.user", "terraform@raito.io"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who.0.promise_duration", "604800"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "true"),
 					),
 				},
 				{
@@ -120,6 +122,46 @@ resource "raito_purpose" "purpose1" {
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "description", "updated terraform purpose"),
 						resource.TestCheckNoResourceAttr("raito_purpose.purpose1", "who"),
 						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_abac_rule", "{\"aggregator\":{\"operands\":[{\"aggregator\":{\"operands\":[{\"comparison\":{\"leftOperand\":\"Test\",\"operator\":\"HasTag\",\"rightOperand\":{\"literal\":{\"string\":\"test\"}}}}],\"operator\":\"And\"}}],\"operator\":\"Or\"}}"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "true"),
+					),
+				},
+				{
+					Config: providerConfig + `
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+resource "raito_purpose" "purpose1" {
+	name = "tfPurpose1-update"
+	description = "updated terraform purpose"
+	state = "Active"
+}
+`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "name", "tfPurpose1-update"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "description", "updated terraform purpose"),
+						resource.TestCheckNoResourceAttr("raito_purpose.purpose1", "who"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "false"),
+					),
+				},
+				{
+					Config: providerConfig + `
+data "raito_datasource" "ds" {
+    name = "Snowflake"
+}
+
+resource "raito_purpose" "purpose1" {
+	name = "tfPurpose1-update"
+	description = "updated terraform purpose"
+	state = "Active"
+	who_locked = true
+}
+`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "name", "tfPurpose1-update"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "description", "updated terraform purpose"),
+						resource.TestCheckNoResourceAttr("raito_purpose.purpose1", "who"),
+						resource.TestCheckResourceAttr("raito_purpose.purpose1", "who_locked", "true"),
 					),
 				},
 			},

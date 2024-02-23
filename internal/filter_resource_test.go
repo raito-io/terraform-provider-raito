@@ -22,6 +22,66 @@ func TestAccFilterResource(t *testing.T) {
 				{
 					ResourceName: "raito_filter.test",
 					Config: providerConfig + `
+				data "raito_datasource" "ds" {
+				   name = "Snowflake"
+				}
+				
+				resource "raito_filter" "test" {
+					name        = "tfTestFilter"
+				   description = "filter description"
+					data_source = data.raito_datasource.ds.id
+					table = "MASTER_DATA.SALES.SPECIALOFFER"
+					who = [
+						{
+							"user": "terraform@raito.io"
+						}
+					]
+					filter_policy = "{Category} = 'Reseller'"
+				}
+				`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_filter.test", "name", "tfTestFilter"),
+						resource.TestCheckResourceAttr("raito_filter.test", "description", "filter description"),
+						resource.TestCheckResourceAttrPair("raito_filter.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttr("raito_filter.test", "table", "MASTER_DATA.SALES.SPECIALOFFER"),
+						resource.TestCheckResourceAttr("raito_filter.test", "filter_policy", "{Category} = 'Reseller'"),
+						resource.TestCheckResourceAttr("raito_filter.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_filter.test", "what_locked", "true"),
+					),
+				},
+				{
+					ResourceName:            "raito_filter.test",
+					ImportState:             true,
+					ImportStateVerify:       true,
+					ImportStateVerifyIgnore: []string{"who", "table"},
+				},
+				{
+					ResourceName: "raito_filter.test",
+					Config: providerConfig + `
+				data "raito_datasource" "ds" {
+				   name = "Snowflake"
+				}
+				
+				resource "raito_filter" "test" {
+					name        = "tfTestFilter"
+				   description = "filter description"
+					data_source = data.raito_datasource.ds.id
+					filter_policy = "{Category} = 'Reseller'"
+				}
+				`,
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_filter.test", "name", "tfTestFilter"),
+						resource.TestCheckResourceAttr("raito_filter.test", "description", "filter description"),
+						resource.TestCheckResourceAttrPair("raito_filter.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckNoResourceAttr("raito_filter.test", "table"),
+						resource.TestCheckResourceAttr("raito_filter.test", "filter_policy", "{Category} = 'Reseller'"),
+						resource.TestCheckResourceAttr("raito_filter.test", "who_locked", "false"),
+						resource.TestCheckResourceAttr("raito_filter.test", "what_locked", "false"),
+					),
+				},
+				{
+					ResourceName: "raito_filter.test",
+					Config: providerConfig + `
 data "raito_datasource" "ds" {
     name = "Snowflake"
 }
@@ -30,28 +90,24 @@ resource "raito_filter" "test" {
 	name        = "tfTestFilter"
     description = "filter description"
 	data_source = data.raito_datasource.ds.id
-	table = "MASTER_DATA.SALES.SPECIALOFFER"
+	filter_policy = "{Category} = 'Reseller'"
+	what_locked = false
 	who = [
 		{
 			"user": "terraform@raito.io"
 		}
 	]
-	filter_policy = "{Category} = 'Reseller'"
 }
 `,
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_filter.test", "name", "tfTestFilter"),
 						resource.TestCheckResourceAttr("raito_filter.test", "description", "filter description"),
 						resource.TestCheckResourceAttrPair("raito_filter.test", "data_source", "data.raito_datasource.ds", "id"),
-						resource.TestCheckResourceAttr("raito_filter.test", "table", "MASTER_DATA.SALES.SPECIALOFFER"),
+						resource.TestCheckNoResourceAttr("raito_filter.test", "table"),
 						resource.TestCheckResourceAttr("raito_filter.test", "filter_policy", "{Category} = 'Reseller'"),
+						resource.TestCheckResourceAttr("raito_filter.test", "who_locked", "true"),
+						resource.TestCheckResourceAttr("raito_filter.test", "what_locked", "false"),
 					),
-				},
-				{
-					ResourceName:            "raito_filter.test",
-					ImportState:             true,
-					ImportStateVerify:       true,
-					ImportStateVerifyIgnore: []string{"who", "table"},
 				},
 			},
 		})

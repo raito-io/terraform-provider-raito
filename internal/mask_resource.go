@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -31,12 +32,14 @@ type MaskResourceModel struct {
 	Who         types.Set            `tfsdk:"who"`
 	Owners      types.Set            `tfsdk:"owners"`
 	WhoAbacRule jsontypes.Normalized `tfsdk:"who_abac_rule"`
+	WhoLocked   types.Bool           `tfsdk:"who_locked"`
 
 	// MaskResourceModel properties.
 	Type         types.String `tfsdk:"type"`
 	DataSource   types.String `tfsdk:"data_source"`
 	Columns      types.Set    `tfsdk:"columns"`
 	WhatAbacRule types.Object `tfsdk:"what_abac_rule"`
+	WhatLocked   types.Bool   `tfsdk:"what_locked"`
 }
 
 func (m *MaskResourceModel) GetAccessProviderResourceModel() *AccessProviderResourceModel {
@@ -48,6 +51,7 @@ func (m *MaskResourceModel) GetAccessProviderResourceModel() *AccessProviderReso
 		Who:         m.Who,
 		Owners:      m.Owners,
 		WhoAbacRule: m.WhoAbacRule,
+		WhoLocked:   m.WhoLocked,
 	}
 }
 
@@ -59,6 +63,7 @@ func (m *MaskResourceModel) SetAccessProviderResourceModel(ap *AccessProviderRes
 	m.Who = ap.Who
 	m.Owners = ap.Owners
 	m.WhoAbacRule = ap.WhoAbacRule
+	m.WhoLocked = ap.WhoLocked
 }
 
 func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *sdk.RaitoClient, result *raitoType.AccessProviderInput) diag.Diagnostics {
@@ -76,13 +81,6 @@ func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *s
 	result.Action = utils.Ptr(models.AccessProviderActionMask)
 
 	if !m.Columns.IsNull() && !m.Columns.IsUnknown() {
-		result.Locks = append(result.Locks, raitoType.AccessProviderLockDataInput{
-			LockKey: raitoType.AccessProviderLockWhatlock,
-			Details: &raitoType.AccessProviderLockDetailsInput{
-				Reason: utils.Ptr(lockMsg),
-			},
-		})
-
 		elements := m.Columns.Elements()
 
 		result.WhatDataObjects = make([]raitoType.AccessProviderWhatInputDO, 0, len(elements))
@@ -98,18 +96,20 @@ func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *s
 			})
 		}
 	} else if !m.WhatAbacRule.IsNull() {
+		diagnostics.Append(m.abacWhatToAccessProviderInput(ctx, client, result)...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+	}
+
+	if m.WhatLocked.ValueBool() {
 		result.Locks = append(result.Locks, raitoType.AccessProviderLockDataInput{
 			LockKey: raitoType.AccessProviderLockWhatlock,
 			Details: &raitoType.AccessProviderLockDetailsInput{
 				Reason: utils.Ptr(lockMsg),
 			},
 		})
-
-		diagnostics.Append(m.abacWhatToAccessProviderInput(ctx, client, result)...)
-
-		if diagnostics.HasError() {
-			return diagnostics
-		}
 	}
 
 	return diagnostics
@@ -132,6 +132,9 @@ func (m *MaskResourceModel) FromAccessProvider(ctx context.Context, client *sdk.
 	}
 
 	m.DataSource = types.StringValue(input.SyncData[0].DataSource.Id)
+	m.WhatLocked = types.BoolValue(slices.ContainsFunc(input.Locks, func(data raitoType.AccessProviderLocksAccessProviderLockData) bool {
+		return data.LockKey == raitoType.AccessProviderLockWhatlock
+	}))
 
 	if input.SyncData[0].Type == nil {
 		maskType, err := client.DataSource().GetMaskingMetadata(ctx, input.SyncData[0].DataSource.Id)
@@ -271,6 +274,12 @@ func NewMaskResource() resource.Resource {
 			readHooks: []ReadHook[MaskResourceModel, *MaskResourceModel]{
 				readMaskResourceColumns,
 			},
+			validationHoos: []ValidationHook[MaskResourceModel, *MaskResourceModel]{
+				validateMaskWhatLock,
+			},
+			planModifier: []PlanModifierHook[MaskResourceModel, *MaskResourceModel]{
+				maskModifyPlan,
+			},
 		},
 	}
 }
@@ -279,7 +288,7 @@ func (m *MaskResource) Metadata(_ context.Context, request resource.MetadataRequ
 	response.TypeName = request.ProviderTypeName + "_mask"
 }
 
-func (m *MaskResource) Schema(ctx context.Context, request resource.SchemaRequest, response *resource.SchemaResponse) {
+func (m *MaskResource) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
 	attributes := m.schema("mask")
 	attributes["type"] = schema.StringAttribute{
 		Required:            false,
@@ -339,6 +348,14 @@ func (m *MaskResource) Schema(ctx context.Context, request resource.SchemaReques
 		Description:         "What data object defined by abac rule. Cannot be set when what_data_objects is set.",
 		MarkdownDescription: "What data object defined by abac rule. Cannot be set when what_data_objects is set.",
 	}
+	attributes["what_locked"] = schema.BoolAttribute{
+		Required:            false,
+		Optional:            true,
+		Computed:            true,
+		Sensitive:           false,
+		Description:         "Indicates whether it should lock the what. Should be set to true if columns or what_abac_rule is set.",
+		MarkdownDescription: "Indicates whether it should lock the what. Should be set to true if columns or what_abac_rule is set.",
+	}
 
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
@@ -385,4 +402,22 @@ func readMaskResourceColumns(ctx context.Context, client *sdk.RaitoClient, data 
 	}
 
 	return diagnostics
+}
+
+func validateMaskWhatLock(_ context.Context, data *MaskResourceModel) (diagnostics diag.Diagnostics) {
+	if (!data.Columns.IsNull() || !data.WhatAbacRule.IsNull()) && (!data.WhatLocked.IsNull() && !data.WhatLocked.ValueBool()) {
+		diagnostics.AddError("What lock should be true", "Columns or what abac rule should be set, so what lock should be true")
+	}
+
+	return diagnostics
+}
+
+func maskModifyPlan(_ context.Context, data *MaskResourceModel) (_ *MaskResourceModel, diagnostics diag.Diagnostics) {
+	if !data.Columns.IsNull() || !data.WhatAbacRule.IsNull() {
+		data.WhatLocked = types.BoolValue(true)
+	} else if data.WhatLocked.IsUnknown() {
+		data.WhatLocked = types.BoolValue(false)
+	}
+
+	return data, diagnostics
 }

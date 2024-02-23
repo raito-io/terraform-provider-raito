@@ -1022,6 +1022,7 @@ func (a *AccessProviderResourceModel) FromAccessProvider(ap *raitoType.AccessPro
 			a.WhoLocked = types.BoolValue(true)
 		case raitoType.AccessProviderLockInheritancelock:
 			a.InheritanceLocked = types.BoolValue(true)
+		default:
 		}
 	}
 

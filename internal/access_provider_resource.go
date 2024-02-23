@@ -66,9 +66,9 @@ type PlanModifierHook[T any, ApModel AccessProviderModel[T]] func(ctx context.Co
 type AccessProviderResource[T any, ApModel AccessProviderModel[T]] struct {
 	client *sdk.RaitoClient
 
-	readHooks      []ReadHook[T, ApModel]
-	validationHoos []ValidationHook[T, ApModel]
-	planModifier   []PlanModifierHook[T, ApModel]
+	readHooks       []ReadHook[T, ApModel]
+	validationHooks []ValidationHook[T, ApModel]
+	planModifier    []PlanModifierHook[T, ApModel]
 }
 
 func (a *AccessProviderResource[T, ApModel]) schema(typeName string) map[string]schema.Attribute {
@@ -766,7 +766,7 @@ func (a *AccessProviderResource[T, ApModel]) ValidateConfig(ctx context.Context,
 		}
 	}
 
-	for _, validatorHook := range a.validationHoos {
+	for _, validatorHook := range a.validationHooks {
 		response.Diagnostics.Append(validatorHook(ctx, apModel)...)
 	}
 }

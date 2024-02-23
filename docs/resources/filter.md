@@ -62,13 +62,14 @@ resource "raito_filter" "filter1" {
 ### Optional
 
 - `description` (String) The description of the filter
+- `inheritance_locked` (Boolean) Indicates if who should be locked. This should be true if who access providers are set.
 - `owners` (Set of String) User id of the owners of this filter
 - `state` (String) The state of the filter Possible values are: ["Active", "Inactive"]
 - `table` (String) The full name of the table that should be filtered
 - `what_locked` (Boolean) Indicates whether it should lock the what. Should be set to true if table is set.
 - `who` (Attributes Set) The who-items associated with the filter. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
 - `who_abac_rule` (String) json representation of the abac rule for who-items associated with the filter
-- `who_locked` (Boolean) Indicates if who should be locked. This should be true if who or who_abac_rule is set.
+- `who_locked` (Boolean) Indicates if who should be locked. This should be true if who users, who groups, or who_abac_rule is set.
 
 ### Read-Only
 

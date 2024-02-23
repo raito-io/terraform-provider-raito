@@ -71,6 +71,7 @@ resource "raito_grant" "grant2" {
 ### Optional
 
 - `description` (String) The description of the grant
+- `inheritance_locked` (Boolean) Indicates if who should be locked. This should be true if who access providers are set.
 - `owners` (Set of String) User id of the owners of this grant
 - `state` (String) The state of the grant Possible values are: ["Active", "Inactive"]
 - `type` (String) The type of the grant
@@ -79,7 +80,7 @@ resource "raito_grant" "grant2" {
 - `what_locked` (Boolean) Indicates whether it should lock the what. Should be set to true if what_data_objects or what_abac_rule is set.
 - `who` (Attributes Set) The who-items associated with the grant. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))
 - `who_abac_rule` (String) json representation of the abac rule for who-items associated with the grant
-- `who_locked` (Boolean) Indicates if who should be locked. This should be true if who or who_abac_rule is set.
+- `who_locked` (Boolean) Indicates if who should be locked. This should be true if who users, who groups, or who_abac_rule is set.
 
 ### Read-Only
 

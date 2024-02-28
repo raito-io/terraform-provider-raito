@@ -17,8 +17,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/golang-set/set"
-	"github.com/raito-io/sdk"
-	raitoType "github.com/raito-io/sdk/types"
+	"github.com/raito-io/sdk-go"
+	raitoType "github.com/raito-io/sdk-go/types"
 
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )

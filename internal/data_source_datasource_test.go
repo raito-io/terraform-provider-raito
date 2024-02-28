@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
-	"github.com/raito-io/sdk/types"
+	"github.com/raito-io/sdk-go/types"
 )
 
 func TestAccDataSourceDataSource(t *testing.T) {

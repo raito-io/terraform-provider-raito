@@ -3,7 +3,7 @@ package internal
 import (
 	"context"
 
-	"github.com/raito-io/sdk"
+	"github.com/raito-io/sdk-go"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"

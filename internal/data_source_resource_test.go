@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	gonanoid "github.com/matoous/go-nanoid/v2"
-	raitoType "github.com/raito-io/sdk/types"
+	raitoType "github.com/raito-io/sdk-go/types"
 )
 
 func TestAccDataSourceResource(t *testing.T) {

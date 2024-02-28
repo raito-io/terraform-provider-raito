@@ -7,9 +7,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/raito-io/sdk"
-	"github.com/raito-io/sdk/services"
-	raitoTypes "github.com/raito-io/sdk/types"
+	"github.com/raito-io/sdk-go"
+	"github.com/raito-io/sdk-go/services"
+	raitoTypes "github.com/raito-io/sdk-go/types"
 
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )

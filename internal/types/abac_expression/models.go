@@ -3,7 +3,7 @@ package abac_expression
 import (
 	"fmt"
 
-	raitoType "github.com/raito-io/sdk/types"
+	raitoType "github.com/raito-io/sdk-go/types"
 
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )

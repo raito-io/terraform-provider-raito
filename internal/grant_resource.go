@@ -345,9 +345,9 @@ type GrantResource struct {
 func NewGrantResource() resource.Resource {
 	return &GrantResource{
 		AccessProviderResource[GrantResourceModel, *GrantResourceModel]{
-			readHooks:      []ReadHook[GrantResourceModel, *GrantResourceModel]{readGrantWhatItems},
-			validationHoos: []ValidationHook[GrantResourceModel, *GrantResourceModel]{validateGrantWhatItems},
-			planModifier:   []PlanModifierHook[GrantResourceModel, *GrantResourceModel]{grantModifyPlan},
+			readHooks:         []ReadHook[GrantResourceModel, *GrantResourceModel]{readGrantWhatItems},
+			validationHooks:   []ValidationHook[GrantResourceModel, *GrantResourceModel]{validateGrantWhatItems},
+			planModifierHooks: []PlanModifierHook[GrantResourceModel, *GrantResourceModel]{grantModifyPlan},
 		},
 	}
 }

@@ -277,10 +277,10 @@ func NewMaskResource() resource.Resource {
 			readHooks: []ReadHook[MaskResourceModel, *MaskResourceModel]{
 				readMaskResourceColumns,
 			},
-			validationHoos: []ValidationHook[MaskResourceModel, *MaskResourceModel]{
+			validationHooks: []ValidationHook[MaskResourceModel, *MaskResourceModel]{
 				validateMaskWhatLock,
 			},
-			planModifier: []PlanModifierHook[MaskResourceModel, *MaskResourceModel]{
+			planModifierHooks: []PlanModifierHook[MaskResourceModel, *MaskResourceModel]{
 				maskModifyPlan,
 			},
 		},

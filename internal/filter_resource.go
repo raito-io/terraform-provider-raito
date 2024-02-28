@@ -146,10 +146,10 @@ func NewFilterResource() resource.Resource {
 			readHooks: []ReadHook[FilterResourceModel, *FilterResourceModel]{
 				readFilterResourceTable,
 			},
-			validationHoos: []ValidationHook[FilterResourceModel, *FilterResourceModel]{
+			validationHooks: []ValidationHook[FilterResourceModel, *FilterResourceModel]{
 				validateFilterWhatLock,
 			},
-			planModifier: []PlanModifierHook[FilterResourceModel, *FilterResourceModel]{
+			planModifierHooks: []PlanModifierHook[FilterResourceModel, *FilterResourceModel]{
 				filterModifyPlan,
 			},
 		},

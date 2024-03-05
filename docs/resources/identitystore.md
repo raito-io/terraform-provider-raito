@@ -3,12 +3,12 @@
 page_title: "raito_identitystore Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The resource for representing a Raito identity store.
+  The resource for representing a Raito Identity Store https://docs.raito.io/docs/cloud/identity_stores.
 ---
 
 # raito_identitystore (Resource)
 
-The resource for representing a Raito identity store.
+The resource for representing a Raito [Identity Store](https://docs.raito.io/docs/cloud/identity_stores).
 
 ## Example Usage
 

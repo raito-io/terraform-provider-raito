@@ -283,7 +283,9 @@ func (m *GrantResourceModel) abacWhatFromAccessProvider(ctx context.Context, cli
 		return types.ObjectNull(objectTypes), diagnostics
 	}
 
-	globalPermissions, gpDiagnostics := utils.SliceToStringSet(ctx, ap.WhatAbacRule.GlobalPermissions)
+	globalPermissionList := utils.Map(ap.WhatAbacRule.GlobalPermissions, strings.ToUpper)
+	globalPermissions, gpDiagnostics := utils.SliceToStringSet(ctx, globalPermissionList)
+
 	diagnostics.Append(gpDiagnostics...)
 
 	if diagnostics.HasError() {
@@ -505,7 +507,7 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
 		Description:         "Grant access control resource",
-		MarkdownDescription: "The resource for representing a Raito grant access control.",
+		MarkdownDescription: "The resource for representing a Raito [Grant](https://docs.raito.io/docs/cloud/access_management/grants) access control.",
 		Version:             1,
 	}
 }

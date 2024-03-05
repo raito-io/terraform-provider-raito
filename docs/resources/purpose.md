@@ -3,12 +3,12 @@
 page_title: "raito_purpose Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The resource for representing a Raito purpose access control.
+  The resource for representing a Raito Purpose https://docs.raito.io/docs/cloud/access_management/purposes access control.
 ---
 
 # raito_purpose (Resource)
 
-The resource for representing a Raito purpose access control.
+The resource for representing a Raito [Purpose](https://docs.raito.io/docs/cloud/access_management/purposes) access control.
 
 ## Example Usage
 

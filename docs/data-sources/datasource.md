@@ -3,12 +3,12 @@
 page_title: "raito_datasource Data Source - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Find a data source based on the name
+  Find a Raito Data Source https://docs.raito.io/docs/cloud/datasources based on the name
 ---
 
 # raito_datasource (Data Source)
 
-Find a data source based on the name
+Find a Raito [Data Source](https://docs.raito.io/docs/cloud/datasources) based on the name
 
 ## Example Usage
 

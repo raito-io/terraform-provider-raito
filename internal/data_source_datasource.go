@@ -36,7 +36,7 @@ func (d *DataSourceDataSource) Metadata(_ context.Context, request datasource.Me
 	response.TypeName = request.ProviderTypeName + "_datasource"
 }
 
-func (d *DataSourceDataSource) Schema(ctx context.Context, request datasource.SchemaRequest, response *datasource.SchemaResponse) {
+func (d *DataSourceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, response *datasource.SchemaResponse) {
 	response.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -99,7 +99,7 @@ func (d *DataSourceDataSource) Schema(ctx context.Context, request datasource.Sc
 			},
 		},
 		Description:         "Find a data source based on the name",
-		MarkdownDescription: "Find a data source based on the name",
+		MarkdownDescription: "Find a Raito [Data Source](https://docs.raito.io/docs/cloud/datasources) based on the name",
 	}
 }
 

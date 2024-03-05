@@ -363,7 +363,7 @@ func (m *MaskResource) Schema(_ context.Context, _ resource.SchemaRequest, respo
 	response.Schema = schema.Schema{
 		Attributes:          attributes,
 		Description:         "The mask access control resource",
-		MarkdownDescription: "The resource for representing a Raito column mask access control.",
+		MarkdownDescription: "The resource for representing a Raito [Column Mask](https://docs.raito.io/docs/cloud/access_management/masks) access control.",
 		Version:             1,
 	}
 }

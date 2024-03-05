@@ -3,12 +3,12 @@
 page_title: "raito_mask Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The resource for representing a Raito column mask access control.
+  The resource for representing a Raito Column Mask https://docs.raito.io/docs/cloud/access_management/masks access control.
 ---
 
 # raito_mask (Resource)
 
-The resource for representing a Raito column mask access control.
+The resource for representing a Raito [Column Mask](https://docs.raito.io/docs/cloud/access_management/masks) access control.
 
 ## Example Usage
 

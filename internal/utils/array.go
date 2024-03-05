@@ -41,3 +41,13 @@ func SliceToStringSet(_ context.Context, values []string) (types.Set, diag.Diagn
 
 	return types.SetValue(types.StringType, stringTypes)
 }
+
+func Map[E ~[]S, S any, O any](values E, fn func(i S) O) []O {
+	result := make([]O, len(values))
+
+	for i := range values {
+		result[i] = fn(values[i])
+	}
+
+	return result
+}

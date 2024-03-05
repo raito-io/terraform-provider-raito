@@ -3,12 +3,12 @@
 page_title: "raito_user Data Source - terraform-provider-raito"
 subcategory: ""
 description: |-
-  Find a user by email address
+  Find a Raito User https://docs.raito.io/docs/cloud/admin/user_management by email address
 ---
 
 # raito_user (Data Source)
 
-Find a user by email address
+Find a Raito [User](https://docs.raito.io/docs/cloud/admin/user_management) by email address
 
 ## Example Usage
 

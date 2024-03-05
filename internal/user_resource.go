@@ -161,7 +161,7 @@ func (u *UserResource) Schema(ctx context.Context, request resource.SchemaReques
 			},
 		},
 		Description:         "User resource",
-		MarkdownDescription: "The resource for representing a user in Raito.",
+		MarkdownDescription: "The resource for representing a [User](https://docs.raito.io/docs/cloud/admin/user_management) in Raito.",
 		Version:             1,
 	}
 }

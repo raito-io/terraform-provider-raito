@@ -100,7 +100,7 @@ func (i *IdentityStoreResource) Schema(_ context.Context, _ resource.SchemaReque
 			},
 		},
 		Description:         "The identity store resource",
-		MarkdownDescription: "The resource for representing a Raito identity store.",
+		MarkdownDescription: "The resource for representing a Raito [Identity Store](https://docs.raito.io/docs/cloud/identity_stores).",
 		Version:             1,
 	}
 }

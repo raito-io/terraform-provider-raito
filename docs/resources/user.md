@@ -3,12 +3,12 @@
 page_title: "raito_user Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The resource for representing a user in Raito.
+  The resource for representing a User https://docs.raito.io/docs/cloud/admin/user_management in Raito.
 ---
 
 # raito_user (Resource)
 
-The resource for representing a user in Raito.
+The resource for representing a [User](https://docs.raito.io/docs/cloud/admin/user_management) in Raito.
 
 ## Example Usage
 

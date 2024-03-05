@@ -3,12 +3,12 @@
 page_title: "raito_grant Resource - terraform-provider-raito"
 subcategory: ""
 description: |-
-  The resource for representing a Raito grant access control.
+  The resource for representing a Raito Grant https://docs.raito.io/docs/cloud/access_management/grants access control.
 ---
 
 # raito_grant (Resource)
 
-The resource for representing a Raito grant access control.
+The resource for representing a Raito [Grant](https://docs.raito.io/docs/cloud/access_management/grants) access control.
 
 ## Example Usage
 

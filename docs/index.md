@@ -7,8 +7,10 @@ description: |-
 
 # Raito Cloud Provider
 
-Use the Raito Cloud provider to interact with the resources supported by Raito.
+Use the Raito Cloud provider to interact with the resources supported by [Raito Cloud](https://www.raito.io/).
 You must configure the provider with the proper credentials before you can use it.
+
+To learn more about Raito, you can visit the Raito documentation on [https://docs.raito.io/](https://docs.raito.io/).
 
 ## Example Usage
 

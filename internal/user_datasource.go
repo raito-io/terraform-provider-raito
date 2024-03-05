@@ -33,11 +33,11 @@ func NewUserDataSource() datasource.DataSource {
 	return &UserDataSource{}
 }
 
-func (u *UserDataSource) Metadata(ctx context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
+func (u *UserDataSource) Metadata(_ context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
 	response.TypeName = request.ProviderTypeName + "_user"
 }
 
-func (u *UserDataSource) Schema(ctx context.Context, request datasource.SchemaRequest, response *datasource.SchemaResponse) {
+func (u *UserDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, response *datasource.SchemaResponse) {
 	response.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -91,7 +91,7 @@ func (u *UserDataSource) Schema(ctx context.Context, request datasource.SchemaRe
 			},
 		},
 		Description:         "Find a user by email address",
-		MarkdownDescription: "Find a user by email address",
+		MarkdownDescription: "Find a Raito [User](https://docs.raito.io/docs/cloud/admin/user_management) by email address",
 	}
 }
 

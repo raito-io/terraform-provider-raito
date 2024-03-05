@@ -36,3 +36,15 @@ provider "raito" {
 
 - `url_override` (String) If set, this URL is used as address for the Raito Cloud API. Only used for testing purposes.
 
+
+
+## Authorisation and Authentication
+This provider requires a valid Raito user to authenticate and interact with the platform.
+
+### User Roles
+In addition to having a valid user account, specific roles are necessary to perform certain actions with the provider:
+
+* `Admin`: Required for managing **DataSources**, **IdentityStores**, and **Users**. This role allows for creating, reading, updating, and deleting these resources.
+* `Access Manager, Access Creator, Integrator`: Required for managing **Grants**, **Masks**, **Filters**, and **Purposes**. These roles allow for creating, reading, updating, and deleting these resources.
+
+Please consult the Raito documentation for more information on user roles and permissions: [https://docs.raito.io/](https://docs.raito.io/docs/cloud/admin/user_management)

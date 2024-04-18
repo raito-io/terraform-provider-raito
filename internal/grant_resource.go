@@ -442,13 +442,15 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"do_types": schema.SetAttribute{
 				ElementType:         types.StringType,
-				Required:            false,
-				Optional:            true,
-				Computed:            true,
+				Required:            true,
+				Optional:            false,
+				Computed:            false,
 				Sensitive:           false,
 				Description:         "Set of data object types associated to the abac rule",
 				MarkdownDescription: "Set of data object types associated to the abac rule",
-				Default:             setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+				Validators: []validator.Set{
+					setvalidator.SizeAtLeast(1),
+				},
 			},
 			"permissions": schema.SetAttribute{
 				ElementType:         types.StringType,

@@ -91,11 +91,11 @@ resource "raito_grant" "grant2" {
 
 Required:
 
+- `do_types` (Set of String) Set of data object types associated to the abac rule
 - `rule` (String) json representation of the abac rule
 
 Optional:
 
-- `do_types` (Set of String) Set of data object types associated to the abac rule
 - `global_permissions` (Set of String) Set of global permissions that should be granted on the matching data object. Allowed values are [READ WRITE ADMIN]
 - `permissions` (Set of String) Set of permissions that should be granted on the matching data object
 - `scope` (Set of String) Scope of the defined abac rule

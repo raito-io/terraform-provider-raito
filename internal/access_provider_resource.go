@@ -1002,6 +1002,7 @@ func (a *AccessProviderResourceModel) whoAbacRuleToAccessProviderInput(result *r
 
 	result.WhoAbacRule = &raitoType.WhoAbacRuleInput{
 		Rule: *rule,
+		Type: raitoType.AccessWhoItemTypeWhogrant,
 	}
 
 	return diagnostics

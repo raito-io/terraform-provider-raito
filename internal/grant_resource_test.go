@@ -297,6 +297,7 @@ resource "raito_grant" "abac_grant" {
 	data_source = data.raito_datasource.ds.id
 	what_abac_rule = {
         rule = local.abac_rule
+		do_types = ["table"]
     }
 	who = [
 		{

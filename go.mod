@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/terraform-plugin-framework-validators v0.12.0
 	github.com/hashicorp/terraform-plugin-go v0.22.2
 	github.com/hashicorp/terraform-plugin-testing v1.7.0
-	github.com/matoous/go-nanoid/v2 v2.0.0
+	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/raito-io/enumer v0.1.4
 	github.com/raito-io/golang-set v0.0.4
 	github.com/raito-io/sdk-go v0.0.9

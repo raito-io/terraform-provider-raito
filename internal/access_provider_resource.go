@@ -882,12 +882,6 @@ func (a *AccessProviderResourceModel) ToAccessProviderInput(ctx context.Context,
 	result.Description = a.Description.ValueStringPointer()
 	result.Locks = append(result.Locks,
 		raitoType.AccessProviderLockDataInput{
-			LockKey: raitoType.AccessProviderLockDeletelock,
-			Details: &raitoType.AccessProviderLockDetailsInput{
-				Reason: utils.Ptr(lockMsg),
-			},
-		},
-		raitoType.AccessProviderLockDataInput{
 			LockKey: raitoType.AccessProviderLockNamelock,
 			Details: &raitoType.AccessProviderLockDetailsInput{
 				Reason: utils.Ptr(lockMsg),

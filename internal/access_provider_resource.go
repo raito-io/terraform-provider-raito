@@ -1085,7 +1085,10 @@ func (p AccessProviderWhatAbacParser) ToAccessProviderInput(ctx context.Context,
 		}
 
 		for _, scopeFullnameItem := range scopeFullnameItems {
-			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, *result.DataSource)
+			// Assume that currently only 1 dataSource is provided
+			dataSource := result.DataSources[0].DataSource
+
+			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, dataSource)
 			if err != nil {
 				diagnostics.AddError("Failed to get data object id", err.Error())
 

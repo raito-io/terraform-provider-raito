@@ -74,7 +74,15 @@ func (f *FilterResourceModel) ToAccessProviderInput(ctx context.Context, client 
 	}
 
 	result.Action = utils.Ptr(models.AccessProviderActionFiltered)
-	result.DataSource = f.DataSource.ValueStringPointer()
+
+	if !f.DataSource.IsNull() && !f.DataSource.IsUnknown() {
+		result.DataSources = []raitoType.AccessProviderDataSourceInput{
+			{
+				DataSource: f.DataSource.ValueString(),
+			},
+		}
+	}
+
 	result.PolicyRule = f.FilterPolicy.ValueStringPointer()
 
 	if !f.Table.IsNull() && !f.Table.IsUnknown() {

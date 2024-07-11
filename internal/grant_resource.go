@@ -82,11 +82,20 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 		return diagnostics
 	}
 
-	if !m.Type.IsUnknown() {
-		result.Type = m.Type.ValueStringPointer()
+	if !m.DataSource.IsNull() && !m.DataSource.IsUnknown() {
+		var apType *string
+		if !m.Type.IsUnknown() {
+			apType = m.Type.ValueStringPointer()
+		}
+
+		result.DataSources = []raitoType.AccessProviderDataSourceInput{
+			{
+				DataSource: m.DataSource.ValueString(),
+				Type:       apType,
+			},
+		}
 	}
 
-	result.DataSource = m.DataSource.ValueStringPointer()
 	result.Action = utils.Ptr(models.AccessProviderActionGrant)
 	result.WhatType = utils.Ptr(raitoType.WhoAndWhatTypeStatic)
 
@@ -139,10 +148,13 @@ func (m *GrantResourceModel) whatDoToApInput(result *raitoType.AccessProviderInp
 			globalPermissions = append(globalPermissions, permission.ValueStringPointer())
 		}
 
+		// Assume that currently only 1 dataSource is provided
+		dataSource := result.DataSources[0].DataSource
+
 		result.WhatDataObjects = append(result.WhatDataObjects, raitoType.AccessProviderWhatInputDO{
 			DataObjectByName: []raitoType.AccessProviderWhatDoByNameInput{{
 				Fullname:   fullname,
-				Datasource: *result.DataSource,
+				Datasource: dataSource,
 			},
 			},
 			Permissions:       permissions,
@@ -168,7 +180,11 @@ func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk
 	}
 
 	m.DataSource = types.StringValue(ap.SyncData[0].DataSource.Id)
-	m.Type = types.StringPointerValue(ap.SyncData[0].Type)
+
+	if ap.SyncData[0].AccessProviderType != nil {
+		m.Type = types.StringPointerValue(ap.SyncData[0].AccessProviderType.Type)
+	}
+
 	m.WhatLocked = types.BoolValue(slices.ContainsFunc(ap.Locks, func(l raitoType.AccessProviderLocksAccessProviderLockData) bool {
 		return l.LockKey == raitoType.AccessProviderLockWhatlock
 	}))
@@ -227,8 +243,11 @@ func (m *GrantResourceModel) abacWhatToAccessProviderInput(ctx context.Context, 
 			return diagnostics
 		}
 
+		// Assume that currently only 1 dataSource is provided
+		dataSource := result.DataSources[0].DataSource
+
 		for _, scopeFullnameItem := range scopeFullnameItems {
-			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, *result.DataSource)
+			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, dataSource)
 			if err != nil {
 				diagnostics.AddError("Failed to get data object id", err.Error())
 

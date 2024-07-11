@@ -231,7 +231,7 @@ resource "raito_mask" "abac_mask" {
     ]
 	what_abac_rule = {
 		rule = local.abac_rule
-		scope = ["MASTER_DATA.PERSON", "MASTER_DATA.SALES"]	
+		scope = ["MASTER_DATA.PERSON", "MASTER_DATA.SALES"]
 	}
 }
 `,

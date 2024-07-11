@@ -76,11 +76,20 @@ func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *s
 		return diagnostics
 	}
 
-	if !m.Type.IsUnknown() {
-		result.Type = m.Type.ValueStringPointer()
+	if !m.DataSource.IsNull() && !m.DataSource.IsUnknown() {
+		var apType *string
+		if !m.Type.IsUnknown() {
+			apType = m.Type.ValueStringPointer()
+		}
+
+		result.DataSources = []raitoType.AccessProviderDataSourceInput{
+			{
+				DataSource: m.DataSource.ValueString(),
+				Type:       apType,
+			},
+		}
 	}
 
-	result.DataSource = m.DataSource.ValueStringPointer()
 	result.Action = utils.Ptr(models.AccessProviderActionMask)
 
 	if !m.Columns.IsNull() && !m.Columns.IsUnknown() {
@@ -88,13 +97,16 @@ func (m *MaskResourceModel) ToAccessProviderInput(ctx context.Context, client *s
 
 		result.WhatDataObjects = make([]raitoType.AccessProviderWhatInputDO, 0, len(elements))
 
+		// Assume that currently only 1 dataSource is provided
+		dataSource := result.DataSources[0].DataSource
+
 		for _, whatDataObject := range elements {
 			columnName := whatDataObject.(types.String).ValueString()
 
 			result.WhatDataObjects = append(result.WhatDataObjects, raitoType.AccessProviderWhatInputDO{
 				DataObjectByName: []raitoType.AccessProviderWhatDoByNameInput{{
 					Fullname:   columnName,
-					Datasource: *result.DataSource,
+					Datasource: dataSource,
 				}},
 			})
 		}
@@ -139,7 +151,7 @@ func (m *MaskResourceModel) FromAccessProvider(ctx context.Context, client *sdk.
 		return data.LockKey == raitoType.AccessProviderLockWhatlock
 	}))
 
-	if input.SyncData[0].Type == nil {
+	if input.SyncData[0].AccessProviderType == nil || input.SyncData[0].AccessProviderType.Type == nil {
 		maskType, err := client.DataSource().GetMaskingMetadata(ctx, input.SyncData[0].DataSource.Id)
 		if err != nil {
 			diagnostics.AddError("Failed to get default mask type", err.Error())
@@ -149,7 +161,7 @@ func (m *MaskResourceModel) FromAccessProvider(ctx context.Context, client *sdk.
 
 		m.Type = types.StringPointerValue(maskType.DefaultMaskExternalName)
 	} else {
-		m.Type = types.StringPointerValue(input.SyncData[0].Type)
+		m.Type = types.StringPointerValue(input.SyncData[0].AccessProviderType.Type)
 	}
 
 	if input.WhatType == raitoType.WhoAndWhatTypeDynamic && input.WhatAbacRule != nil {
@@ -185,8 +197,11 @@ func (m *MaskResourceModel) abacWhatToAccessProviderInput(ctx context.Context, c
 			return diagnostics
 		}
 
+		// Assume that currently only 1 dataSource is provided
+		dataSource := result.DataSources[0].DataSource
+
 		for _, scopeFullnameItem := range scopeFullnameItems {
-			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, *result.DataSource)
+			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, dataSource)
 			if err != nil {
 				diagnostics.AddError("Failed to get data object id", err.Error())
 

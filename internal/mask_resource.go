@@ -151,7 +151,7 @@ func (m *MaskResourceModel) FromAccessProvider(ctx context.Context, client *sdk.
 		return data.LockKey == raitoType.AccessProviderLockWhatlock
 	}))
 
-	if input.SyncData[0].AccessProviderType.Type == nil {
+	if input.SyncData[0].AccessProviderType == nil || input.SyncData[0].AccessProviderType.Type == nil {
 		maskType, err := client.DataSource().GetMaskingMetadata(ctx, input.SyncData[0].DataSource.Id)
 		if err != nil {
 			diagnostics.AddError("Failed to get default mask type", err.Error())

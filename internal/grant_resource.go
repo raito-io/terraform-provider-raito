@@ -180,7 +180,11 @@ func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk
 	}
 
 	m.DataSource = types.StringValue(ap.SyncData[0].DataSource.Id)
-	m.Type = types.StringPointerValue(ap.SyncData[0].AccessProviderType.Type)
+
+	if ap.SyncData[0].AccessProviderType != nil {
+		m.Type = types.StringPointerValue(ap.SyncData[0].AccessProviderType.Type)
+	}
+
 	m.WhatLocked = types.BoolValue(slices.ContainsFunc(ap.Locks, func(l raitoType.AccessProviderLocksAccessProviderLockData) bool {
 		return l.LockKey == raitoType.AccessProviderLockWhatlock
 	}))

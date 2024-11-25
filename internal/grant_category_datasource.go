@@ -304,7 +304,12 @@ func setGrantCategoryData(data *types2.GrantCategoryDetails, resp *GrantCategory
 		defaultTypesPerDs = append(defaultTypesPerDs, objectValue)
 	}
 
-	defaultTypesPerDsAttr, diags := types.SetValue(types.ObjectType{}, defaultTypesPerDs)
+	defaultTypesPerDsAttr, diags := types.SetValue(types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"data_source": types.StringType,
+			"type":        types.StringType,
+		},
+	}, defaultTypesPerDs)
 
 	diagnostic.Append(diags...)
 

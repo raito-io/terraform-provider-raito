@@ -95,9 +95,9 @@ func (p *RaitoCloudProvider) Resources(_ context.Context) []func() resource.Reso
 	return []func() resource.Resource{
 		NewDataSourceResource,
 		NewIdentityStoreResource,
+		NewGrantCategoryResource,
 		NewGrantResource,
 		NewFilterResource,
-		NewPurposeResource,
 		NewMaskResource,
 		NewUserResource,
 	}
@@ -106,6 +106,7 @@ func (p *RaitoCloudProvider) Resources(_ context.Context) []func() resource.Reso
 func (p *RaitoCloudProvider) DataSources(_ context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		NewDataSourceDataSource,
+		NewGrantCategoryDataSource,
 		NewUserDataSource,
 	}
 }

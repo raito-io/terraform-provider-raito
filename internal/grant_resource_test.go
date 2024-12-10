@@ -29,10 +29,16 @@ data "raito_datasource" "ds" {
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	what_data_objects = [
 		{
-			"fullname": "MASTER_DATA.SALES"
+			fullname = "MASTER_DATA.SALES"
+			data_source = data.raito_datasource.ds.id
 		}
 	]
 	who = [
@@ -45,7 +51,7 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),
@@ -53,6 +59,7 @@ resource "raito_grant" "test" {
 						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "true"),
 						resource.TestCheckResourceAttr("raito_grant.test", "inheritance_locked", "false"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_locked", "true"),
+						resource.TestCheckResourceAttr("raito_grant.test", "category", "default"),
 					),
 				},
 				{
@@ -70,11 +77,17 @@ data "raito_datasource" "ds" {
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	state = "Inactive"
 	what_data_objects = [
 		{
-			fullname: "MASTER_DATA.SALES"
+			fullname = "MASTER_DATA.SALES"
+			data_source = data.raito_datasource.ds.id
 			permissions: ["SELECT"]
 		}
 	]
@@ -89,7 +102,7 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.permissions.#", "1"),
@@ -110,7 +123,12 @@ data "raito_datasource" "ds" {
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	state = "Inactive"
 	what_locked = true
 	who_locked = true
@@ -120,7 +138,7 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckNoResourceAttr("raito_grant.test", "what_data_objects"),
 						resource.TestCheckNoResourceAttr("raito_grant.test", "who"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "true"),
@@ -137,7 +155,12 @@ data "raito_datasource" "ds" {
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	state = "Inactive"
 	what_locked = false
 	who_locked = false
@@ -147,7 +170,7 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckNoResourceAttr("raito_grant.test", "what_data_objects"),
 						resource.TestCheckNoResourceAttr("raito_grant.test", "who"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "false"),
@@ -176,29 +199,42 @@ data "raito_datasource" "ds" {
     name = "Snowflake"
 }
 
-resource "raito_purpose" "purpose1" {
+resource "raito_grant" "purpose1" {
 	name = "tfPurpose1-update"
 	description = "updated terraform purpose"
 	state = "Active"
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	who = [
 		{
 			"user": "terraform@raito.io"
 		}
 	]
+	category = "purpose"
 }
 
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	what_data_objects = [
 		{
-			"fullname": "MASTER_DATA.SALES"
+			fullname = "MASTER_DATA.SALES"
+			data_source = data.raito_datasource.ds.id
 		}
 	]
 	who = [
 		{
-			"access_control": raito_purpose.purpose1.id
+			"access_control": raito_grant.purpose1.id
 		}
 	]
 }
@@ -206,11 +242,11 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "1"),
-						resource.TestCheckResourceAttrPair("raito_grant.test", "who.0.access_control", "raito_purpose.purpose1", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "who.0.access_control", "raito_grant.purpose1", "id"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who_locked", "false"),
 						resource.TestCheckResourceAttr("raito_grant.test", "inheritance_locked", "true"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_locked", "true"),
@@ -222,29 +258,42 @@ data "raito_datasource" "ds" {
     name = "Snowflake"
 }
 
-resource "raito_purpose" "purpose1" {
+resource "raito_grant" "purpose1" {
 	name = "tfPurpose1-update"
 	description = "updated terraform purpose"
 	state = "Active"
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	who = [
 		{
 			"user": "terraform@raito.io"
 		}
 	]
+	category = "purpose"
 }
 
 resource "raito_grant" "test" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	what_data_objects = [
 		{
-			"fullname": "MASTER_DATA.SALES"
+			fullname = "MASTER_DATA.SALES"
+			data_source = data.raito_datasource.ds.id
 		}
 	]
 	who = [
 		{
-			"access_control": raito_purpose.purpose1.id
+			"access_control": raito_grant.purpose1.id
 		},
 		{
 			"user": "terraform@raito.io"
@@ -255,7 +304,7 @@ resource "raito_grant" "test" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.test", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.test", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.test", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.test", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckResourceAttr("raito_grant.test", "who.#", "2"),
@@ -294,10 +343,21 @@ locals {
 resource "raito_grant" "abac_grant" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	what_abac_rule = {
         rule = local.abac_rule
 		do_types = ["table"]
+		scope = [
+			{
+				data_source: data.raito_datasource.ds.id
+				fullname: "MASTER_DATA"
+			}
+		]
     }
 	who = [
 		{
@@ -309,11 +369,12 @@ resource "raito_grant" "abac_grant" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckNoResourceAttr("raito_grant.abac_grant", "what_data_objects"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.rule", "{\"literal\":true}"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.#", "1"),
-						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.0", "PA34277"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.0.fullname", "MASTER_DATA"),
+						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "what_abac_rule.scope.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.0", "READ"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.#", "1"),
@@ -343,10 +404,24 @@ locals {
 resource "raito_grant" "abac_grant" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	what_abac_rule = {
         rule = local.abac_rule
-		scope = ["MASTER_DATA.PERSON", "MASTER_DATA.SALES"]
+		scope = [
+			{
+				fullname: "MASTER_DATA.PERSON"
+				data_source: data.raito_datasource.ds.id
+			},
+			{
+				fullname: "MASTER_DATA.SALES"
+				data_source: data.raito_datasource.ds.id
+			}
+		]
 		global_permissions = ["WRITE"]
 		permissions = ["SELECT"]
 		do_types = ["table", "view"]
@@ -361,7 +436,7 @@ resource "raito_grant" "abac_grant" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckNoResourceAttr("raito_grant.abac_grant", "what_data_objects"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.rule", "{\"literal\":true}"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.#", "2"),
@@ -427,10 +502,16 @@ locals {
 resource "raito_grant" "who_abac_grant" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	what_data_objects = [
 		{
-			"fullname": "MASTER_DATA.SALES"
+			fullname = "MASTER_DATA.SALES"
+			data_source = data.raito_datasource.ds.id
 		}
 	]
 	who_abac_rule = local.abac_rule
@@ -439,7 +520,7 @@ resource "raito_grant" "who_abac_grant" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.who_abac_grant", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.who_abac_grant", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckNoResourceAttr("raito_grant.who_abac_grant", "who"),
@@ -490,10 +571,16 @@ locals {
 resource "raito_grant" "who_abac_grant" {
 	name        = "tfTestGrant"
     description = "test description"
-	data_source = data.raito_datasource.ds.id
+	data_source = [
+		{  
+			data_source = data.raito_datasource.ds.id
+			type = "role"
+		}
+	]
 	what_data_objects = [
 		{
-			"fullname": "MASTER_DATA.SALES"
+			fullname = "MASTER_DATA.SALES"
+			data_source = data.raito_datasource.ds.id
 		}
 	]
 	who_abac_rule = local.abac_rule
@@ -503,7 +590,7 @@ resource "raito_grant" "who_abac_grant" {
 					Check: resource.ComposeAggregateTestCheckFunc(
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "name", "tfTestGrant"),
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "description", "test description"),
-						resource.TestCheckResourceAttrPair("raito_grant.who_abac_grant", "data_source", "data.raito_datasource.ds", "id"),
+						resource.TestCheckResourceAttrPair("raito_grant.who_abac_grant", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.who_abac_grant", "what_data_objects.0.fullname", "MASTER_DATA.SALES"),
 						resource.TestCheckNoResourceAttr("raito_grant.who_abac_grant", "who"),

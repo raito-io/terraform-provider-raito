@@ -15,8 +15,13 @@ resource "raito_grant" "grant1" {
       promise_duration : 604800
     }
   ]
-  type        = "role"
-  data_source = raito_datasource.ds.id
+  type = "role"
+  data_source = [
+    {
+      data_source : raito_datasource.ds.id
+      type : "role"
+    }
+  ]
   what_data_objects = {
     data_object : [
       {
@@ -32,14 +37,20 @@ resource "raito_grant" "grant1" {
   }
 }
 
-resource "raito_grant" "grant2" {
+resource "raito_grant" "grant_purpose1" {
   name        = "Grant2"
   description = "Grant with inherited who"
+  category    = "purpose"
   state       = "Active"
   who = [
     {
       access_control = raito_grant.grant1.id
     }
   ]
-  data_source = raito_datasource.ds.id
+  data_source = [
+    {
+      data_source : raito_datasource.ds.id
+      type : "role"
+    }
+  ]
 }

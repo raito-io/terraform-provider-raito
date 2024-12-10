@@ -42,8 +42,8 @@ type GrantResourceModel struct {
 	InheritanceLocked types.Bool           `tfsdk:"inheritance_locked"`
 
 	// GrantResourceModel properties.
-	Type            types.String `tfsdk:"type"`
-	DataSource      types.String `tfsdk:"data_source"`
+	Category        types.String `tfsdk:"category"`
+	DataSource      types.Set    `tfsdk:"data_source"`
 	WhatDataObjects types.Set    `tfsdk:"what_data_objects"`
 	WhatAbacRule    types.Object `tfsdk:"what_abac_rule"`
 	WhatLocked      types.Bool   `tfsdk:"what_locked"`
@@ -83,16 +83,23 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 	}
 
 	if !m.DataSource.IsNull() && !m.DataSource.IsUnknown() {
-		var apType *string
-		if !m.Type.IsUnknown() {
-			apType = m.Type.ValueStringPointer()
-		}
+		dataSourceElements := m.DataSource.Elements()
 
-		result.DataSources = []raitoType.AccessProviderDataSourceInput{
-			{
-				DataSource: m.DataSource.ValueString(),
+		result.DataSources = make([]raitoType.AccessProviderDataSourceInput, 0, len(dataSourceElements))
+
+		for _, dsElement := range dataSourceElements {
+			dsAttributes := dsElement.(types.Object).Attributes()
+
+			var apType *string
+
+			if !dsAttributes["type"].(types.String).IsUnknown() {
+				apType = dsAttributes["type"].(types.String).ValueStringPointer()
+			}
+
+			result.DataSources = append(result.DataSources, raitoType.AccessProviderDataSourceInput{
+				DataSource: dsAttributes["data_source"].(types.String).ValueString(),
 				Type:       apType,
-			},
+			})
 		}
 	}
 
@@ -118,6 +125,10 @@ func (m *GrantResourceModel) ToAccessProviderInput(ctx context.Context, client *
 		})
 	}
 
+	if !m.Category.IsUnknown() {
+		result.Category = m.Category.ValueStringPointer()
+	}
+
 	return diagnostics
 }
 
@@ -131,6 +142,7 @@ func (m *GrantResourceModel) whatDoToApInput(result *raitoType.AccessProviderInp
 		whatDataObjectAttributes := whatDataObjectObject.Attributes()
 
 		fullname := whatDataObjectAttributes["fullname"].(types.String).ValueString()
+		dataSource := whatDataObjectAttributes["data_source"].(types.String).ValueString()
 
 		permissionSet := whatDataObjectAttributes["permissions"].(types.Set)
 		permissions := make([]*string, 0, len(permissionSet.Elements()))
@@ -147,9 +159,6 @@ func (m *GrantResourceModel) whatDoToApInput(result *raitoType.AccessProviderInp
 			permission := p.(types.String)
 			globalPermissions = append(globalPermissions, permission.ValueStringPointer())
 		}
-
-		// Assume that currently only 1 dataSource is provided
-		dataSource := result.DataSources[0].DataSource
 
 		result.WhatDataObjects = append(result.WhatDataObjects, raitoType.AccessProviderWhatInputDO{
 			DataObjectByName: []raitoType.AccessProviderWhatDoByNameInput{{
@@ -173,17 +182,44 @@ func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk
 
 	m.SetAccessProviderResourceModel(apResourceModel)
 
-	if len(ap.SyncData) != 1 {
-		diagnostics.AddError("Failed to get data source", fmt.Sprintf("Expected exactly one data source, got: %d.", len(ap.SyncData)))
+	dataSourceValues := make([]attr.Value, 0, len(ap.SyncData))
 
+	for _, ds := range ap.SyncData {
+		dsId := types.StringValue(ds.DataSource.Id)
+		dsType := types.StringPointerValue(ds.AccessProviderType.Type)
+
+		dataSource, diag := types.ObjectValue(map[string]attr.Type{
+			"data_source": types.StringType,
+			"type":        types.StringType,
+		},
+			map[string]attr.Value{
+				"data_source": dsId,
+				"type":        dsType,
+			})
+
+		diagnostics.Append(diag...)
+
+		if diagnostics.HasError() {
+			return diagnostics
+		}
+
+		dataSourceValues = append(dataSourceValues, dataSource)
+	}
+
+	dataSources, diag := types.SetValue(types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"data_source": types.StringType,
+			"type":        types.StringType,
+		},
+	}, dataSourceValues)
+
+	diagnostics.Append(diag...)
+
+	if diagnostics.HasError() {
 		return diagnostics
 	}
 
-	m.DataSource = types.StringValue(ap.SyncData[0].DataSource.Id)
-
-	if ap.SyncData[0].AccessProviderType != nil {
-		m.Type = types.StringPointerValue(ap.SyncData[0].AccessProviderType.Type)
-	}
+	m.DataSource = dataSources
 
 	m.WhatLocked = types.BoolValue(slices.ContainsFunc(ap.Locks, func(l raitoType.AccessProviderLocksAccessProviderLockData) bool {
 		return l.LockKey == raitoType.AccessProviderLockWhatlock
@@ -199,6 +235,8 @@ func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk
 
 		m.WhatAbacRule = object
 	}
+
+	m.Category = types.StringValue(ap.Category.Id)
 
 	return diagnostics
 }
@@ -379,27 +417,52 @@ func (g *GrantResource) Metadata(_ context.Context, request resource.MetadataReq
 
 func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
 	attributes := g.schema("grant")
-	attributes["type"] = schema.StringAttribute{
+	attributes["category"] = schema.StringAttribute{
 		Required:            false,
 		Optional:            true,
-		Computed:            false,
+		Computed:            true,
 		Sensitive:           false,
-		Description:         "The type of the grant",
-		MarkdownDescription: "The type of the grant",
+		Description:         "The ID of the category of the grant",
+		MarkdownDescription: "The ID of the category of the grant",
 		PlanModifiers: []planmodifier.String{
+			stringplanmodifier.UseStateForUnknown(),
 			stringplanmodifier.RequiresReplace(),
 		},
 	}
-	attributes["data_source"] = schema.StringAttribute{
+	attributes["data_source"] = schema.SetNestedAttribute{
+		NestedObject: schema.NestedAttributeObject{
+			Attributes: map[string]schema.Attribute{
+				"data_source": schema.StringAttribute{
+					Required:            true,
+					Optional:            false,
+					Computed:            false,
+					Sensitive:           false,
+					Description:         "The ID of the data source of the grant",
+					MarkdownDescription: "The ID of the data source of the grant",
+					Validators: []validator.String{
+						stringvalidator.LengthAtLeast(3),
+					},
+				},
+				"type": schema.StringAttribute{
+					Required:            false,
+					Optional:            true,
+					Computed:            true,
+					Sensitive:           false,
+					Description:         "The implementation type of the grant for this data source",
+					MarkdownDescription: "The implementation type of the grant for this data source",
+					PlanModifiers: []planmodifier.String{
+						stringplanmodifier.UseStateForUnknown(),
+					},
+				},
+			},
+		},
 		Required:            true,
 		Optional:            false,
 		Computed:            false,
 		Sensitive:           false,
 		Description:         "The ID of the data source of the grant",
 		MarkdownDescription: "The ID of the data source of the grant",
-		Validators: []validator.String{
-			stringvalidator.LengthAtLeast(3),
-		},
+		Validators:          []validator.Set{setvalidator.SizeAtLeast(1)},
 	}
 	attributes["what_data_objects"] = schema.SetNestedAttribute{
 		NestedObject: schema.NestedAttributeObject{
@@ -411,6 +474,14 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					Sensitive:           false,
 					Description:         "The full name of the data object in the data source",
 					MarkdownDescription: "The full name of the data object in the data source",
+				},
+				"data_source": schema.StringAttribute{
+					Required:            true,
+					Optional:            false,
+					Computed:            false,
+					Sensitive:           false,
+					Description:         "The data source of the data object",
+					MarkdownDescription: "The data source of the data object",
 				},
 				"permissions": schema.SetAttribute{
 					ElementType:         types.StringType,
@@ -452,9 +523,9 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 		Attributes: map[string]schema.Attribute{
 			"scope": schema.SetAttribute{
 				ElementType:         types.StringType,
-				Required:            false,
-				Optional:            true,
-				Computed:            true,
+				Required:            true,
+				Optional:            false,
+				Computed:            false,
 				Sensitive:           false,
 				Description:         "Scope of the defined abac rule",
 				MarkdownDescription: "Scope of the defined abac rule",
@@ -552,9 +623,11 @@ func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *Gran
 			what := whatItem.GetItem()
 
 			var id *string
+			var dataSourceId *string
 
 			if what.DataObject != nil {
 				id = &what.DataObject.FullName
+				dataSourceId = &what.DataObject.DataSource.Id
 			} else {
 				diagnostics.AddError("Invalid what data object", "Received data object is nil")
 
@@ -572,7 +645,8 @@ func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *Gran
 			}
 
 			stateWhatItems = append(stateWhatItems, types.ObjectValueMust(map[string]attr.Type{
-				"fullname": types.StringType,
+				"fullname":    types.StringType,
+				"data_source": types.StringType,
 				"permissions": types.SetType{
 					ElemType: types.StringType,
 				},
@@ -581,6 +655,7 @@ func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *Gran
 				},
 			}, map[string]attr.Value{
 				"fullname":           types.StringPointerValue(id),
+				"data_source":        types.StringPointerValue(dataSourceId),
 				"permissions":        types.SetValueMust(types.StringType, permissions),
 				"global_permissions": types.SetValueMust(types.StringType, globalPermissions),
 			}))
@@ -588,7 +663,8 @@ func readGrantWhatItems(ctx context.Context, client *sdk.RaitoClient, data *Gran
 
 		whatDataObject, whatDiag := types.SetValue(types.ObjectType{
 			AttrTypes: map[string]attr.Type{
-				"fullname": types.StringType,
+				"fullname":    types.StringType,
+				"data_source": types.StringType,
 				"permissions": types.SetType{
 					ElemType: types.StringType,
 				},

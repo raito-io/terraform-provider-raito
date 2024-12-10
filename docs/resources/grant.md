@@ -30,8 +30,13 @@ resource "raito_grant" "grant1" {
       promise_duration : 604800
     }
   ]
-  type        = "role"
-  data_source = raito_datasource.ds.id
+  type = "role"
+  data_source = [
+    {
+      data_source : raito_datasource.ds.id
+      type : "role"
+    }
+  ]
   what_data_objects = {
     data_object : [
       {
@@ -47,16 +52,22 @@ resource "raito_grant" "grant1" {
   }
 }
 
-resource "raito_grant" "grant2" {
+resource "raito_grant" "grant_purpose1" {
   name        = "Grant2"
   description = "Grant with inherited who"
+  category    = "purpose"
   state       = "Active"
   who = [
     {
       access_control = raito_grant.grant1.id
     }
   ]
-  data_source = raito_datasource.ds.id
+  data_source = [
+    {
+      data_source : raito_datasource.ds.id
+      type : "role"
+    }
+  ]
 }
 ```
 
@@ -65,16 +76,16 @@ resource "raito_grant" "grant2" {
 
 ### Required
 
-- `data_source` (String) The ID of the data source of the grant
+- `data_source` (Attributes Set) The ID of the data source of the grant (see [below for nested schema](#nestedatt--data_source))
 - `name` (String) The name of the grant
 
 ### Optional
 
+- `category` (String) The ID of the category of the grant
 - `description` (String) The description of the grant
 - `inheritance_locked` (Boolean) Indicates if who should be locked. This should be true if who access providers are set.
 - `owners` (Set of String) User id of the owners of this grant
 - `state` (String) The state of the grant Possible values are: ["Active", "Inactive"]
-- `type` (String) The type of the grant
 - `what_abac_rule` (Attributes) What data object defined by abac rule. Cannot be set when what_data_objects is set. (see [below for nested schema](#nestedatt--what_abac_rule))
 - `what_data_objects` (Attributes Set) The data object what items associated to the grant. When this is not set (nil), the what list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--what_data_objects))
 - `what_locked` (Boolean) Indicates whether it should lock the what. Should be set to true if what_data_objects or what_abac_rule is set.
@@ -86,6 +97,18 @@ resource "raito_grant" "grant2" {
 
 - `id` (String) The ID of the grant
 
+<a id="nestedatt--data_source"></a>
+### Nested Schema for `data_source`
+
+Required:
+
+- `data_source` (String) The ID of the data source of the grant
+
+Optional:
+
+- `type` (String) The implementation type of the grant for this data source
+
+
 <a id="nestedatt--what_abac_rule"></a>
 ### Nested Schema for `what_abac_rule`
 
@@ -93,12 +116,12 @@ Required:
 
 - `do_types` (Set of String) Set of data object types associated to the abac rule
 - `rule` (String) json representation of the abac rule
+- `scope` (Set of String) Scope of the defined abac rule
 
 Optional:
 
 - `global_permissions` (Set of String) Set of global permissions that should be granted on the matching data object. Allowed values are [READ WRITE ADMIN]
 - `permissions` (Set of String) Set of permissions that should be granted on the matching data object
-- `scope` (Set of String) Scope of the defined abac rule
 
 
 <a id="nestedatt--what_data_objects"></a>
@@ -106,6 +129,7 @@ Optional:
 
 Required:
 
+- `data_source` (String) The data source of the data object
 - `fullname` (String) The full name of the data object in the data source
 
 Optional:

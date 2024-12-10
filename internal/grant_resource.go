@@ -184,7 +184,8 @@ func (m *GrantResourceModel) FromAccessProvider(ctx context.Context, client *sdk
 
 	dataSourceValues := make([]attr.Value, 0, len(ap.SyncData))
 
-	for _, ds := range ap.SyncData {
+	for i := range ap.SyncData {
+		ds := &ap.SyncData[i]
 		dsId := types.StringValue(ds.DataSource.Id)
 		dsType := types.StringPointerValue(ds.AccessProviderType.Type)
 

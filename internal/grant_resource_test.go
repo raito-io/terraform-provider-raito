@@ -352,7 +352,12 @@ resource "raito_grant" "abac_grant" {
 	what_abac_rule = {
         rule = local.abac_rule
 		do_types = ["table"]
-		scope = ["PA34277"]
+		scope = [
+			{
+				data_source: data.raito_datasource.ds.id
+				fullname: "MASTER_DATA"
+			}
+		]
     }
 	who = [
 		{
@@ -367,8 +372,9 @@ resource "raito_grant" "abac_grant" {
 						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "data_source.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckNoResourceAttr("raito_grant.abac_grant", "what_data_objects"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.rule", "{\"literal\":true}"),
-						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.#", "0"),
-						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.0", "PA34277"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.#", "1"),
+						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.scope.0.fullname", "MASTER_DATA"),
+						resource.TestCheckResourceAttrPair("raito_grant.abac_grant", "what_abac_rule.scope.0.data_source", "data.raito_datasource.ds", "id"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.#", "1"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "what_abac_rule.global_permissions.0", "READ"),
 						resource.TestCheckResourceAttr("raito_grant.abac_grant", "who.#", "1"),
@@ -406,7 +412,16 @@ resource "raito_grant" "abac_grant" {
 	]
 	what_abac_rule = {
         rule = local.abac_rule
-		scope = ["MASTER_DATA.PERSON", "MASTER_DATA.SALES"]
+		scope = [
+			{
+				fullname: "MASTER_DATA.PERSON"
+				data_source: data.raito_datasource.ds.id
+			},
+			{
+				fullname: "MASTER_DATA.SALES"
+				data_source: data.raito_datasource.ds.id
+			}
+		]
 		global_permissions = ["WRITE"]
 		permissions = ["SELECT"]
 		do_types = ["table", "view"]

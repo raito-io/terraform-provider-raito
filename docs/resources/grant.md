@@ -116,12 +116,21 @@ Required:
 
 - `do_types` (Set of String) Set of data object types associated to the abac rule
 - `rule` (String) json representation of the abac rule
-- `scope` (Set of String) Scope of the defined abac rule
+- `scope` (Attributes Set) Scope of the defined abac rule (see [below for nested schema](#nestedatt--what_abac_rule--scope))
 
 Optional:
 
 - `global_permissions` (Set of String) Set of global permissions that should be granted on the matching data object. Allowed values are [READ WRITE ADMIN]
 - `permissions` (Set of String) Set of permissions that should be granted on the matching data object
+
+<a id="nestedatt--what_abac_rule--scope"></a>
+### Nested Schema for `what_abac_rule.scope`
+
+Required:
+
+- `data_source` (String) The data source of the data object
+- `fullname` (String) The full name of the data object in the data source
+
 
 
 <a id="nestedatt--what_data_objects"></a>

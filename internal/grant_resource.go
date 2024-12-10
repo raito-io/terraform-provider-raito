@@ -270,31 +270,24 @@ func (m *GrantResourceModel) abacWhatToAccessProviderInput(ctx context.Context, 
 		return diagnostics
 	}
 
-	scopeAttr := attributes["scope"]
-
 	scope := make([]string, 0)
+	scopeSet := attributes["scope"].(types.Set)
 
-	if !scopeAttr.IsNull() && !scopeAttr.IsUnknown() {
-		scopeFullnameItems, scopeDiagnostics := utils.StringSetToSlice(ctx, attributes["scope"].(types.Set))
-		diagnostics.Append(scopeDiagnostics...)
+	for _, scopeItem := range scopeSet.Elements() {
+		scopeObject := scopeItem.(types.Object)
+		scopeAttributes := scopeObject.Attributes()
 
-		if diagnostics.HasError() {
+		dataSourceId := scopeAttributes["data_source"].(types.String).ValueString()
+		fullname := scopeAttributes["fullname"].(types.String).ValueString()
+
+		id, err := client.DataObject().GetDataObjectIdByName(ctx, fullname, dataSourceId)
+		if err != nil {
+			diagnostics.AddError("Failed to get data object id", err.Error())
+
 			return diagnostics
 		}
 
-		// Assume that currently only 1 dataSource is provided
-		dataSource := result.DataSources[0].DataSource
-
-		for _, scopeFullnameItem := range scopeFullnameItems {
-			id, err := client.DataObject().GetDataObjectIdByName(ctx, scopeFullnameItem, dataSource)
-			if err != nil {
-				diagnostics.AddError("Failed to get data object id", err.Error())
-
-				return diagnostics
-			}
-
-			scope = append(scope, id)
-		}
+		scope = append(scope, id)
 	}
 
 	jsonRule := attributes["rule"].(jsontypes.Normalized)
@@ -326,11 +319,12 @@ func (m *GrantResourceModel) abacWhatToAccessProviderInput(ctx context.Context, 
 }
 
 func (m *GrantResourceModel) abacWhatFromAccessProvider(ctx context.Context, client *sdk.RaitoClient, ap *raitoType.AccessProvider) (_ types.Object, diagnostics diag.Diagnostics) {
+	scopeType := types.ObjectType{AttrTypes: map[string]attr.Type{"data_source": types.StringType, "fullname": types.StringType}}
 	objectTypes := map[string]attr.Type{
 		"do_types":           types.SetType{ElemType: types.StringType},
 		"permissions":        types.SetType{ElemType: types.StringType},
 		"global_permissions": types.SetType{ElemType: types.StringType},
-		"scope":              types.SetType{ElemType: types.StringType},
+		"scope":              types.SetType{ElemType: scopeType},
 		"rule":               jsontypes.NormalizedType{},
 	}
 
@@ -371,10 +365,13 @@ func (m *GrantResourceModel) abacWhatFromAccessProvider(ctx context.Context, cli
 			return types.ObjectNull(objectTypes), diagnostics
 		}
 
-		scopeItems = append(scopeItems, types.StringValue(scopeItem.MustGetItem().FullName))
+		scopeItems = append(scopeItems, types.ObjectValueMust(scopeType.AttrTypes, map[string]attr.Value{
+			"fullname":    types.StringValue(scopeItem.MustGetItem().FullName),
+			"data_source": types.StringValue(scopeItem.MustGetItem().DataSource.Id),
+		}))
 	}
 
-	scope, scopeDiagnostics := types.SetValue(types.StringType, scopeItems)
+	scope, scopeDiagnostics := types.SetValue(scopeType, scopeItems)
 	diagnostics.Append(scopeDiagnostics...)
 
 	if diagnostics.HasError() {
@@ -483,6 +480,9 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					Sensitive:           false,
 					Description:         "The data source of the data object",
 					MarkdownDescription: "The data source of the data object",
+					Validators: []validator.String{
+						stringvalidator.LengthAtLeast(3),
+					},
 				},
 				"permissions": schema.SetAttribute{
 					ElementType:         types.StringType,
@@ -522,14 +522,42 @@ func (g *GrantResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 	}
 	attributes["what_abac_rule"] = schema.SingleNestedAttribute{
 		Attributes: map[string]schema.Attribute{
-			"scope": schema.SetAttribute{
-				ElementType:         types.StringType,
+			"scope": schema.SetNestedAttribute{
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"fullname": schema.StringAttribute{
+							Required:            true,
+							Optional:            false,
+							Computed:            false,
+							Sensitive:           false,
+							Description:         "The full name of the data object in the data source",
+							MarkdownDescription: "The full name of the data object in the data source",
+						},
+						"data_source": schema.StringAttribute{
+							Required:            true,
+							Optional:            false,
+							Computed:            false,
+							Sensitive:           false,
+							Description:         "The data source of the data object",
+							MarkdownDescription: "The data source of the data object",
+							Validators: []validator.String{
+								stringvalidator.LengthAtLeast(3),
+							},
+						},
+					},
+					CustomType:    nil,
+					Validators:    nil,
+					PlanModifiers: nil,
+				},
 				Required:            true,
 				Optional:            false,
 				Computed:            false,
 				Sensitive:           false,
 				Description:         "Scope of the defined abac rule",
 				MarkdownDescription: "Scope of the defined abac rule",
+				Validators: []validator.Set{
+					setvalidator.SizeAtLeast(1),
+				},
 			},
 			"do_types": schema.SetAttribute{
 				ElementType:         types.StringType,

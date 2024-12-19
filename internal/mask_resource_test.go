@@ -27,6 +27,7 @@ data "raito_datasource" "ds" {
 
 resource "raito_mask" "test" {
 	name        = "tfTestMask"
+	type        = "NULL"
     description = "test description"
 	data_source = data.raito_datasource.ds.id
 	columns = []
@@ -65,6 +66,7 @@ resource "raito_mask" "test" {
 
 resource "raito_mask" "test" {
 	name        = "Terraform Mask name edit"
+	type        = "NULL"
     description = "test description"
 	data_source = data.raito_datasource.ds.id
 	who = [
@@ -122,6 +124,7 @@ locals {
 
 resource "raito_mask" "test" {
 	name        = "Terraform Mask name edit"
+	type        = "NULL"
     description = "test description"
 	data_source = data.raito_datasource.ds.id
 	who_abac_rule = local.abac_rule
@@ -173,6 +176,7 @@ locals {
 
 resource "raito_mask" "test" {
 	name        = "Terraform Mask name edit"
+	type        = "NULL"
     description = "test description"
 	data_source = data.raito_datasource.ds.id
 	who_abac_rule = local.abac_rule
@@ -221,6 +225,7 @@ locals {
 
 resource "raito_mask" "abac_mask" {
 	name        = "tfTestMask"
+	type        = "NULL"
     description = "test description"
 	data_source = data.raito_datasource.ds.id
 	who = [

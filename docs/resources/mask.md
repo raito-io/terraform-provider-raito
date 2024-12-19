@@ -41,6 +41,7 @@ resource "raito_mask" "example" {
 
 - `data_source` (String) The ID of the data source of the mask
 - `name` (String) The name of the mask
+- `type` (String) The masking method, which defines how the data is masked. Available types are defined by the data source.
 
 ### Optional
 
@@ -49,7 +50,6 @@ resource "raito_mask" "example" {
 - `inheritance_locked` (Boolean) Indicates if who should be locked. This should be true if who access providers are set.
 - `owners` (Set of String) User id of the owners of this mask
 - `state` (String) The state of the mask Possible values are: ["Active", "Inactive"]
-- `type` (String) The masking method, which defines how the data is masked. Available types are defined by the data source.
 - `what_abac_rule` (Attributes) What data object defined by abac rule. Cannot be set when what_data_objects is set. (see [below for nested schema](#nestedatt--what_abac_rule))
 - `what_locked` (Boolean) Indicates whether it should lock the what. Should be set to true if columns or what_abac_rule is set.
 - `who` (Attributes Set) The who-items associated with the mask. When this is not set (nil), the who-list will not be overridden. This is typically used when this should be managed from Raito Cloud. (see [below for nested schema](#nestedatt--who))

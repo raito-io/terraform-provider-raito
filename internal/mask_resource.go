@@ -309,9 +309,9 @@ func (m *MaskResource) Metadata(_ context.Context, request resource.MetadataRequ
 func (m *MaskResource) Schema(_ context.Context, _ resource.SchemaRequest, response *resource.SchemaResponse) {
 	attributes := m.schema("mask")
 	attributes["type"] = schema.StringAttribute{
-		Required:            false,
-		Optional:            true,
-		Computed:            true,
+		Required:            true,
+		Optional:            false,
+		Computed:            false,
 		Sensitive:           false,
 		Description:         "The masking method",
 		MarkdownDescription: "The masking method, which defines how the data is masked. Available types are defined by the data source.",

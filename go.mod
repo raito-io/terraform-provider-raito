@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.23.3
 
 require (
+	github.com/go-errors/errors v1.5.1
 	github.com/hashicorp/terraform-plugin-docs v0.20.1
 	github.com/hashicorp/terraform-plugin-framework v1.13.0
 	github.com/hashicorp/terraform-plugin-framework-jsontypes v0.2.0
@@ -50,7 +51,6 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.7.1 // indirect
 	github.com/cloudflare/circl v1.5.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect

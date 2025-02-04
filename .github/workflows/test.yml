@@ -47,6 +47,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - run: go mod tidy
       - run: go generate ./...
       - name: git diff
         run: |

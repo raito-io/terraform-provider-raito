@@ -354,7 +354,7 @@ func (g *GrantCategoryResource) Read(ctx context.Context, request resource.ReadR
 	category, err := g.client.GrantCategory().GetGrantCategory(ctx, stateData.Id.ValueString())
 	if err != nil {
 		var notFoundErr *raitoType.ErrNotFound
-		if !errors.As(err, &notFoundErr) {
+		if errors.As(err, &notFoundErr) {
 			response.State.RemoveResource(ctx)
 		} else {
 			response.Diagnostics.AddError("Failed to get grant category", err.Error())

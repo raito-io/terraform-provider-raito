@@ -230,7 +230,7 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 	user, err := u.client.User().GetUser(ctx, stateData.Id.ValueString())
 	if err != nil {
 		var notFoundErr *raitoTypes.ErrNotFound
-		if !errors.As(err, &notFoundErr) {
+		if errors.As(err, &notFoundErr) {
 			response.State.RemoveResource(ctx)
 		} else {
 			response.Diagnostics.AddError("Failed to read user", err.Error())

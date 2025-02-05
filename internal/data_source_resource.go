@@ -228,7 +228,7 @@ func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequ
 	ds, err := d.client.DataSource().GetDataSource(ctx, stateData.Id.ValueString())
 	if err != nil {
 		var notFoundErr *raitoType.ErrNotFound
-		if !errors.As(err, &notFoundErr) {
+		if errors.As(err, &notFoundErr) {
 			response.State.RemoveResource(ctx)
 		} else {
 			response.Diagnostics.AddError("Failed to get data source", err.Error())

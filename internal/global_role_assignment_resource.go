@@ -23,7 +23,7 @@ import (
 var _ resource.Resource = (*GlobalRoleAssignmentResource)(nil)
 
 const roleIdSuffix = "Role"
-const _seperator = "#"
+const _separator = "#"
 
 type GlobalRoleAssignmentModel struct {
 	Id   types.String `tfsdk:"id"`
@@ -40,11 +40,11 @@ func (m *GlobalRoleAssignmentModel) GetRoleId() string {
 }
 
 func _generateUniqueId(role, user string) string {
-	return role + _seperator + user
+	return role + _separator + user
 }
 
 func _getRoleAndUserFromId(id string) (role, user string) {
-	parts := strings.SplitN(id, _seperator, 2)
+	parts := strings.SplitN(id, _separator, 2)
 	role = parts[0]
 	user = parts[1]
 

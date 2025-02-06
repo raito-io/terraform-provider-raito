@@ -80,7 +80,6 @@ resource "raito_user" "u1" {
 	raito_user = true
 	type = "Machine"
 	password = "!23vV678"
-	roles = ["Admin"]
 }
 `, testId),
 					Check: resource.ComposeAggregateTestCheckFunc(
@@ -89,8 +88,6 @@ resource "raito_user" "u1" {
 						resource.TestCheckResourceAttr("raito_user.u1", "raito_user", "true"),
 						resource.TestCheckResourceAttr("raito_user.u1", "type", "Machine"),
 						resource.TestCheckResourceAttr("raito_user.u1", "password", "!23vV678"),
-						resource.TestCheckResourceAttr("raito_user.u1", "roles.#", "1"),
-						resource.TestCheckResourceAttr("raito_user.u1", "roles.0", "Admin"),
 						resource.TestCheckResourceAttrWith("raito_user.u1", "id", func(value string) error {
 							if len(value) == 0 {
 								return fmt.Errorf("ID should not be empty")

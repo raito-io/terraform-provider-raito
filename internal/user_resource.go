@@ -156,7 +156,7 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 	if data.RaitoUser.ValueBool() {
 		options := make([]func(options *services.InviteAsRaitoUserOptions), 0, 1)
 
-		if !data.Password.IsNull() {
+		if data.Password.IsNull() {
 			options = append(options, services.WithInviteAsRaitoUserNoPassword())
 		}
 

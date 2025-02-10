@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/sdk-go"
+	"github.com/raito-io/sdk-go/services"
 	raitoTypes "github.com/raito-io/sdk-go/types"
 
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
@@ -153,7 +154,7 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 	response.Diagnostics.Append(response.State.Set(ctx, &data)...)
 
 	if data.RaitoUser.ValueBool() {
-		user, err = u.client.User().InviteAsRaitoUser(ctx, user.Id)
+		user, err = u.client.User().InviteAsRaitoUser(ctx, user.Id, services.WithInviteAsRaitoUserNoPassword())
 		if err != nil {
 			response.Diagnostics.AddError("Failed to invite user as Raito user", err.Error())
 

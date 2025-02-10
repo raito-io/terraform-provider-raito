@@ -15,7 +15,7 @@ require (
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/raito-io/enumer v0.1.6
 	github.com/raito-io/golang-set v0.0.4
-	github.com/raito-io/sdk-go v0.0.14-dev1
+	github.com/raito-io/sdk-go v0.0.14
 )
 
 require (

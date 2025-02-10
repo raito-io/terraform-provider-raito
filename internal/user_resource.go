@@ -154,7 +154,13 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 	response.Diagnostics.Append(response.State.Set(ctx, &data)...)
 
 	if data.RaitoUser.ValueBool() {
-		user, err = u.client.User().InviteAsRaitoUser(ctx, user.Id, services.WithInviteAsRaitoUserNoPassword())
+		options := make([]func(options *services.InviteAsRaitoUserOptions), 0, 1)
+
+		if !data.Password.IsNull() {
+			options = append(options, services.WithInviteAsRaitoUserNoPassword())
+		}
+
+		user, err = u.client.User().InviteAsRaitoUser(ctx, user.Id, options...)
 		if err != nil {
 			response.Diagnostics.AddError("Failed to invite user as Raito user", err.Error())
 

@@ -22,13 +22,13 @@ resource "raito_user" "u1" {
 }
 
 resource "raito_global_role_assignment" "u1_admin" {
-  user_id = raito_user.u1.id
-  role    = "Admin"
+  user = raito_user.u1.id
+  role = "Admin"
 }
 
 resource "raito_global_role_assignment" "u1_creator" {
-  user_id = raito_user.u1.id
-  role    = "Creator"
+  user = raito_user.u1.id
+  role = "Creator"
 }
 ```
 

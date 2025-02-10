@@ -6,28 +6,22 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/raito-io/sdk-go"
-	"github.com/raito-io/sdk-go/services"
 	raitoTypes "github.com/raito-io/sdk-go/types"
 
 	"github.com/raito-io/terraform-provider-raito/internal/utils"
 )
 
 var _ resource.Resource = (*UserResource)(nil)
-
-const roleIdSuffix = "Role"
 
 type UserResourceModel struct {
 	Id        types.String `tfsdk:"id"`
@@ -36,7 +30,6 @@ type UserResourceModel struct {
 	Type      types.String `tfsdk:"type"`
 	Password  types.String `tfsdk:"password"`
 	RaitoUser types.Bool   `tfsdk:"raito_user"`
-	Roles     types.Set    `tfsdk:"roles"`
 }
 
 func (m *UserResourceModel) ToUserInput() raitoTypes.UserInput {
@@ -45,18 +38,6 @@ func (m *UserResourceModel) ToUserInput() raitoTypes.UserInput {
 		Email: m.Email.ValueStringPointer(),
 		Type:  (*raitoTypes.UserType)(m.Type.ValueStringPointer()),
 	}
-}
-
-func (m *UserResourceModel) GetRoleIds() []string {
-	elements := m.Roles.Elements()
-
-	result := make([]string, len(elements))
-
-	for i, element := range elements {
-		result[i] = element.(types.String).ValueString() + roleIdSuffix
-	}
-
-	return result
 }
 
 type UserResource struct {
@@ -144,21 +125,6 @@ func (u *UserResource) Schema(ctx context.Context, request resource.SchemaReques
 				MarkdownDescription: "Indicates if a user is a Raito User",
 				Default:             booldefault.StaticBool(true),
 			},
-			"roles": schema.SetAttribute{
-				ElementType:         types.StringType,
-				Required:            false,
-				Optional:            true,
-				Computed:            true,
-				Sensitive:           false,
-				Description:         "User global roles",
-				MarkdownDescription: "User global roles",
-				Validators: []validator.Set{
-					setvalidator.ValueStringsAre(
-						stringvalidator.OneOf("Admin", "Creator", "Observer", "Integrator", "AccessCreator"),
-					),
-				},
-				Default: setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
-			},
 		},
 		Description:         "User resource",
 		MarkdownDescription: "The resource for representing a [User](https://docs.raito.io/docs/cloud/admin/user_management) in Raito.",
@@ -206,15 +172,6 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 			return
 		}
 	}
-
-	if user.IsRaitoUser {
-		err = u.client.Role().SetGlobalRoleForUsers(ctx, user.Id, data.GetRoleIds()...)
-		if err != nil {
-			response.Diagnostics.AddError("Failed to set global roles for user", err.Error())
-
-			return
-		}
-	}
 }
 
 func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
@@ -239,31 +196,6 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		return
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	defer cancelFunc()
-
-	roles := u.client.Role().ListRoleAssignmentsOnUser(cancelCtx, user.Id, services.WithRoleAssignmentListFilter(&raitoTypes.RoleAssignmentFilterInput{
-		OnlyGlobal: utils.Ptr(true),
-	}))
-
-	actualRoles := make([]types.String, 0)
-
-	for role := range roles {
-		if role.HasError() {
-			response.Diagnostics.AddError("Failed to list roles for user", role.GetError().Error())
-
-			return
-		}
-
-		roleId := role.GetItem().GetRole().Id
-		roleName := roleId[:len(roleId)-len(roleIdSuffix)] // Cut off "Role" suffix
-		actualRoles = append(actualRoles, types.StringValue(roleName))
-	}
-
-	rolesSet, rolesDiagnostics := types.SetValueFrom(ctx, types.StringType, actualRoles)
-
-	response.Diagnostics.Append(rolesDiagnostics...)
-
 	if response.Diagnostics.HasError() {
 		return
 	}
@@ -275,7 +207,6 @@ func (u *UserResource) Read(ctx context.Context, request resource.ReadRequest, r
 		Type:      types.StringValue(string(user.Type)),
 		Password:  stateData.Password,
 		RaitoUser: types.BoolValue(user.IsRaitoUser),
-		Roles:     rolesSet,
 	}
 
 	response.Diagnostics.Append(response.State.Set(ctx, &actualData)...)
@@ -331,15 +262,6 @@ func (u *UserResource) Update(ctx context.Context, request resource.UpdateReques
 		}
 	}
 
-	if user.IsRaitoUser {
-		err = u.client.Role().SetGlobalRoleForUsers(ctx, user.Id, planData.GetRoleIds()...)
-		if err != nil {
-			response.Diagnostics.AddError("Failed to set global roles for user", err.Error())
-
-			return
-		}
-	}
-
 	planData.RaitoUser = types.BoolValue(user.IsRaitoUser)
 	response.Diagnostics.Append(response.State.Set(ctx, &planData)...)
 }
@@ -366,12 +288,14 @@ func (u *UserResource) Delete(ctx context.Context, request resource.DeleteReques
 			return
 		}
 
-		_, err = u.client.User().GetUser(ctx, stateData.Id.ValueString())
+		tmpU, err := u.client.User().GetUser(ctx, stateData.Id.ValueString())
 		if err != nil {
 			response.State.RemoveResource(ctx)
 
 			return
 		}
+
+		_ = tmpU
 	}
 
 	err := u.client.User().DeleteUser(ctx, stateData.Id.ValueString())
@@ -380,7 +304,7 @@ func (u *UserResource) Delete(ctx context.Context, request resource.DeleteReques
 		if errors.As(err, &notFoundErr) {
 			response.State.RemoveResource(ctx)
 		} else {
-			response.Diagnostics.AddError("Failed to delete user", err.Error())
+			response.Diagnostics.AddError("Failed to delete user "+stateData.Id.ValueString(), err.Error())
 		}
 
 		return
@@ -431,9 +355,5 @@ func (u *UserResource) ValidateConfig(ctx context.Context, request resource.Vali
 
 	if !data.Password.IsNull() && !isRaitoUser {
 		response.Diagnostics.AddError("Password cannot be set if the user is not a Raito user", "Password cannot be set if the user is not a Raito user")
-	}
-
-	if len(data.Roles.Elements()) > 0 && !isRaitoUser {
-		response.Diagnostics.AddError("Roles cannot be set if the user is not a Raito user", "Roles cannot be set if the user is not a Raito user")
 	}
 }

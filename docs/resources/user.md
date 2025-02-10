@@ -19,7 +19,6 @@ resource "raito_user" "u1" {
   raito_user = true
   type       = "Machine"
   password   = "!23vV678"
-  roles      = ["Admin", "Integrator"]
 }
 ```
 
@@ -35,7 +34,6 @@ resource "raito_user" "u1" {
 
 - `password` (String, Sensitive) The password of the user, if set the user will be created as Raito User
 - `raito_user` (Boolean) Indicates if a user is a Raito User
-- `roles` (Set of String) User global roles
 - `type` (String) The type of the user (Human or Machine)
 
 ### Read-Only

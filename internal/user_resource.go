@@ -238,7 +238,7 @@ func (u *UserResource) Update(ctx context.Context, request resource.UpdateReques
 		return
 	}
 
-	if planData.RaitoUser.ValueBool() && !stateData.RaitoUser.ValueBool() {
+	if (planData.RaitoUser.ValueBool() && !stateData.RaitoUser.ValueBool()) || (!planData.Password.IsNull() && stateData.Password.IsNull() && planData.RaitoUser.ValueBool()) {
 		user, err = u.client.User().InviteAsRaitoUser(ctx, user.Id)
 		if err != nil {
 			response.Diagnostics.AddError("Failed to invite user as Raito user", err.Error())

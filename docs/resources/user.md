@@ -32,8 +32,10 @@ resource "raito_user" "u1" {
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `password` (String, Sensitive) The password of the user, if set the user will be created as Raito User. Preferably use password_wo.
-- `password_wo` (String, Sensitive) The password of the user, if set the user will be created as Raito User
+- `password_wo` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The password of the user, if set the user will be created as Raito User
 - `password_wo_version` (Number) Version of the password_wo. This is used to force the password to be updated.
 - `raito_user` (Boolean) Indicates if a user is a Raito User
 - `type` (String) The type of the user (Human or Machine)

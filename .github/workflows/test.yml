@@ -50,6 +50,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - run: go mod tidy
+      - run: tfplugindocs --version
       - run: go generate ./...
       - name: git diff
         run: |

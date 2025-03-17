@@ -27,13 +27,14 @@ import (
 var _ resource.Resource = (*UserResource)(nil)
 
 type UserResourceModel struct {
-	Id         types.String `tfsdk:"id"`
-	Name       types.String `tfsdk:"name"`
-	Email      types.String `tfsdk:"email"`
-	Type       types.String `tfsdk:"type"`
-	Password   types.String `tfsdk:"password"`
-	PasswordWo types.String `tfsdk:"password_wo"`
-	RaitoUser  types.Bool   `tfsdk:"raito_user"`
+	Id                types.String `tfsdk:"id"`
+	Name              types.String `tfsdk:"name"`
+	Email             types.String `tfsdk:"email"`
+	Type              types.String `tfsdk:"type"`
+	Password          types.String `tfsdk:"password"`
+	PasswordWo        types.String `tfsdk:"password_wo"`
+	PasswordWoVersion types.Int32  `tfsdk:"password_wo_version"`
+	RaitoUser         types.Bool   `tfsdk:"raito_user"`
 }
 
 func (m *UserResourceModel) ToUserInput() raitoTypes.UserInput {
@@ -227,7 +228,7 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 			return
 		}
 	}
-
+	
 	data.RaitoUser = types.BoolValue(user.IsRaitoUser)
 	response.Diagnostics.Append(response.State.Set(ctx, &data)...)
 

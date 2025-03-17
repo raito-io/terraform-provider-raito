@@ -7,9 +7,11 @@ import (
 	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -25,12 +27,13 @@ import (
 var _ resource.Resource = (*UserResource)(nil)
 
 type UserResourceModel struct {
-	Id        types.String `tfsdk:"id"`
-	Name      types.String `tfsdk:"name"`
-	Email     types.String `tfsdk:"email"`
-	Type      types.String `tfsdk:"type"`
-	Password  types.String `tfsdk:"password"`
-	RaitoUser types.Bool   `tfsdk:"raito_user"`
+	Id         types.String `tfsdk:"id"`
+	Name       types.String `tfsdk:"name"`
+	Email      types.String `tfsdk:"email"`
+	Type       types.String `tfsdk:"type"`
+	Password   types.String `tfsdk:"password"`
+	PasswordWo types.String `tfsdk:"password_wo"`
+	RaitoUser  types.Bool   `tfsdk:"raito_user"`
 }
 
 func (m *UserResourceModel) ToUserInput() raitoTypes.UserInput {
@@ -102,6 +105,31 @@ func (u *UserResource) Schema(ctx context.Context, request resource.SchemaReques
 				Optional:            true,
 				Computed:            false,
 				Sensitive:           true,
+				WriteOnly:           false,
+				Description:         "The password of the user, if set the user will be created as Raito User. Preferably use password_wo.",
+				MarkdownDescription: "The password of the user, if set the user will be created as Raito User. Preferably use password_wo.",
+				Validators: []validator.String{
+					stringvalidator.All(
+						stringvalidator.LengthAtLeast(8),
+						stringvalidator.RegexMatches(regexp.MustCompile(".*[a-z].*"), "requires at least one lowercase letter"),
+						stringvalidator.RegexMatches(regexp.MustCompile(".*[A-Z].*"), " requires at least one uppercase letter"),
+						stringvalidator.RegexMatches(regexp.MustCompile(`.*\d.*`), "requires at least one number"),
+						stringvalidator.RegexMatches(regexp.MustCompile(".*[!@#$%^&*].*"), "requires at least one special character"),
+						stringvalidator.PreferWriteOnlyAttribute(
+							path.MatchRoot("password_wo"),
+						),
+					),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"password_wo": schema.StringAttribute{
+				Required:            false,
+				Optional:            true,
+				Computed:            false,
+				Sensitive:           true,
+				WriteOnly:           true,
 				Description:         "The password of the user, if set the user will be created as Raito User",
 				MarkdownDescription: "The password of the user, if set the user will be created as Raito User",
 				Validators: []validator.String{
@@ -116,6 +144,18 @@ func (u *UserResource) Schema(ctx context.Context, request resource.SchemaReques
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"password_wo_version": schema.Int32Attribute{
+				Required:            false,
+				Optional:            true,
+				Computed:            false,
+				Sensitive:           false,
+				Description:         "Version of the password_wo. This is used to force the password to be updated.",
+				MarkdownDescription: "Version of the password_wo. This is used to force the password to be updated.",
+				PlanModifiers: []planmodifier.Int32{
+					int32planmodifier.RequiresReplace(),
+				},
+				Default: nil,
 			},
 			"raito_user": schema.BoolAttribute{
 				Required:            false,
@@ -142,12 +182,32 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 		return
 	}
 
-	// Create user
-	user, err := u.client.User().CreateUser(ctx, data.ToUserInput())
+	user, err := u.client.User().GetUserByEmail(ctx, data.Email.ValueString())
 	if err != nil {
-		response.Diagnostics.AddError("Failed to create user", err.Error())
+		var notFoundErr *raitoTypes.ErrNotFound
+		if !errors.As(err, &notFoundErr) {
+			response.Diagnostics.AddError("Failed to check if user already exists", err.Error())
 
-		return
+			return
+		}
+	}
+
+	if user != nil {
+		// Update user
+		user, err = u.client.User().UpdateUser(ctx, user.Id, data.ToUserInput())
+		if err != nil {
+			response.Diagnostics.AddError("Failed to update user", err.Error())
+
+			return
+		}
+	} else {
+		// Create user
+		user, err = u.client.User().CreateUser(ctx, data.ToUserInput())
+		if err != nil {
+			response.Diagnostics.AddError("Failed to create user", err.Error())
+
+			return
+		}
 	}
 
 	data.Id = types.StringValue(user.Id)
@@ -171,8 +231,16 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 	data.RaitoUser = types.BoolValue(user.IsRaitoUser)
 	response.Diagnostics.Append(response.State.Set(ctx, &data)...)
 
-	if !data.Password.IsNull() {
-		_, err = u.client.User().SetUserPassword(ctx, user.Id, data.Password.ValueString())
+	if !data.Password.IsNull() || !data.PasswordWo.IsNull() {
+		var password string
+
+		if !data.PasswordWo.IsNull() {
+			password = data.PasswordWo.ValueString()
+		} else {
+			password = data.Password.ValueString()
+		}
+
+		_, err = u.client.User().SetUserPassword(ctx, user.Id, password)
 		if err != nil {
 			response.Diagnostics.AddError("Failed to set user password", err.Error())
 

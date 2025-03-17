@@ -1,19 +1,20 @@
 module github.com/raito-io/terraform-provider-raito
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.23.3
+tool (
+	github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
+	github.com/raito-io/enumer
+)
 
 require (
 	github.com/go-errors/errors v1.5.1
-	github.com/hashicorp/terraform-plugin-docs v0.21.0
 	github.com/hashicorp/terraform-plugin-framework v1.14.1
 	github.com/hashicorp/terraform-plugin-framework-jsontypes v0.2.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.17.0
 	github.com/hashicorp/terraform-plugin-go v0.26.0
 	github.com/hashicorp/terraform-plugin-testing v1.11.0
 	github.com/matoous/go-nanoid/v2 v2.1.0
-	github.com/raito-io/enumer v0.1.6
 	github.com/raito-io/golang-set v0.0.4
 	github.com/raito-io/sdk-go v0.0.14
 )
@@ -70,6 +71,7 @@ require (
 	github.com/hashicorp/logutils v1.0.0 // indirect
 	github.com/hashicorp/terraform-exec v0.22.0 // indirect
 	github.com/hashicorp/terraform-json v0.24.0 // indirect
+	github.com/hashicorp/terraform-plugin-docs v0.21.0 // indirect
 	github.com/hashicorp/terraform-plugin-log v0.9.0 // indirect
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.35.0 // indirect
 	github.com/hashicorp/terraform-registry-address v0.2.4 // indirect
@@ -88,6 +90,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pascaldekloe/name v1.0.1 // indirect
 	github.com/posener/complete v1.2.3 // indirect
+	github.com/raito-io/enumer v0.1.6 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect

@@ -228,7 +228,7 @@ func (u *UserResource) Create(ctx context.Context, request resource.CreateReques
 			return
 		}
 	}
-	
+
 	data.RaitoUser = types.BoolValue(user.IsRaitoUser)
 	response.Diagnostics.Append(response.State.Set(ctx, &data)...)
 

@@ -50,7 +50,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - run: go mod tidy
-      - run: go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs --version
+      - run: terraform --version
       - run: go generate ./...
       - name: git diff
         run: |

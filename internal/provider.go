@@ -108,6 +108,7 @@ func (p *RaitoCloudProvider) DataSources(_ context.Context) []func() datasource.
 	return []func() datasource.DataSource{
 		NewDataSourceDataSource,
 		NewGrantCategoryDataSource,
+		NewIdentityStoreDataSource,
 		NewUserDataSource,
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -27,6 +28,7 @@ type IdentityStoreResourceModel struct {
 	Description types.String `tfsdk:"description"`
 	//Locked      types.Bool   `tfsdk:"locked"` // TODO
 	Master types.Bool `tfsdk:"master"`
+	Owners types.Set  `tfsdk:"owners"`
 }
 
 func (m *IdentityStoreResourceModel) ToIdentityStoreInput() raitoType.IdentityStoreInput {
@@ -98,6 +100,15 @@ func (i *IdentityStoreResource) Schema(_ context.Context, _ resource.SchemaReque
 				MarkdownDescription: "`True`, if this is a master identity store. Default: `false`",
 				Default:             booldefault.StaticBool(false),
 			},
+			"owners": schema.SetAttribute{
+				ElementType:         types.StringType,
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+				Sensitive:           false,
+				Description:         "The IDs of the owners of the identity store",
+				MarkdownDescription: "The IDs of the owners of the identity store",
+			},
 		},
 		Description:         "The identity store resource",
 		MarkdownDescription: "The resource for representing a Raito [Identity Store](https://docs.raito.io/docs/cloud/identity_stores).",
@@ -131,6 +142,26 @@ func (i *IdentityStoreResource) Create(ctx context.Context, request resource.Cre
 
 		return
 	}
+
+	// Set Owners
+	if !data.Owners.IsNull() && len(data.Owners.Elements()) > 0 {
+		response.Diagnostics.Append(i.setOwners(ctx, &data.Owners, isResult.Id)...)
+
+		if response.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	owners, diagn := getOwners(ctx, isResult.Id, i.client)
+	response.Diagnostics.Append(diagn...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	data.Owners = owners
+
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }
 
 func (i *IdentityStoreResource) Read(ctx context.Context, request resource.ReadRequest, response *resource.ReadResponse) {
@@ -161,6 +192,14 @@ func (i *IdentityStoreResource) Read(ctx context.Context, request resource.ReadR
 		Master:      types.BoolValue(is.Master),
 	}
 
+	owners, diagn := getOwners(ctx, stateData.Id.ValueString(), i.client)
+	response.Diagnostics.Append(diagn...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	actualData.Owners = owners
 	response.Diagnostics.Append(response.State.Set(ctx, actualData)...)
 }
 
@@ -188,6 +227,26 @@ func (i *IdentityStoreResource) Update(ctx context.Context, request resource.Upd
 
 		return
 	}
+
+	// Set Owners
+	if !data.Owners.IsNull() && len(data.Owners.Elements()) > 0 {
+		response.Diagnostics.Append(i.setOwners(ctx, &data.Owners, data.Id.ValueString())...)
+
+		if response.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	owners, diagn := getOwners(ctx, data.Id.ValueString(), i.client)
+	response.Diagnostics.Append(diagn...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	data.Owners = owners
+
+	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }
 
 func (i *IdentityStoreResource) Delete(ctx context.Context, request resource.DeleteRequest, response *resource.DeleteResponse) {
@@ -199,12 +258,42 @@ func (i *IdentityStoreResource) Delete(ctx context.Context, request resource.Del
 		return
 	}
 
-	err := i.client.IdentityStore().DeleteIdentityStore(ctx, data.Id.ValueString())
+	currentUser, err := i.client.User().GetCurrentUser(ctx)
+	if err != nil {
+		response.Diagnostics.AddError("Failed to get current user", err.Error())
+
+		return
+	}
+
+	_, err = i.client.Role().UpdateRoleAssigneesOnIdentityStore(ctx, data.Id.ValueString(), ownerRole, currentUser.Id)
+	if err != nil {
+		response.Diagnostics.AddError("Failed to remove role assignees from data source", err.Error())
+
+		return
+	}
+
+	err = i.client.IdentityStore().DeleteIdentityStore(ctx, data.Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete identity store", err.Error())
 	}
 
 	response.State.RemoveResource(ctx)
+}
+
+func (i *IdentityStoreResource) setOwners(ctx context.Context, ownerSet *types.Set, isId string) (diagnostics diag.Diagnostics) {
+	ownersValues := ownerSet.Elements()
+	owners := make([]string, 0, len(ownersValues))
+
+	for _, owner := range ownersValues {
+		owners = append(owners, owner.(types.String).ValueString())
+	}
+
+	_, err := i.client.Role().UpdateRoleAssigneesOnIdentityStore(ctx, isId, ownerRole, owners...)
+	if err != nil {
+		diagnostics.AddError("Failed to update role assignees on data source", err.Error())
+	}
+
+	return diagnostics
 }
 
 func (i *IdentityStoreResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

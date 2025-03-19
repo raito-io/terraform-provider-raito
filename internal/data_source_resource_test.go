@@ -141,4 +141,96 @@ resource "raito_datasource" "test" {
 			},
 		})
 	})
+
+	t.Run("set owners", func(t *testing.T) {
+		resource.Test(t, resource.TestCase{
+			IsUnitTest: false,
+			PreCheck: func() {
+				AccProviderPreCheck(t)
+			},
+			TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+				tfversion.SkipBelow(tfversion.Version1_0_0),
+			},
+			Steps: []resource.TestStep{
+				{
+					Config: providerConfig + fmt.Sprintf(`
+resource "raito_user" "test_user" {
+  name       = "TestUser%[1]s"
+  email      = "test_user-%[1]s@raito.io"
+  raito_user = true
+  type       = "Machine"					
+}
+					
+resource "raito_datasource" "test" {
+	name        = "tfTestDataSource-%[1]s"
+	description = "test description"
+	owners      = [ raito_user.test_user.id ]
+}
+`, testId),
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfTestDataSource-"+testId),
+						resource.TestCheckResourceAttr("raito_datasource.test", "description", "test description"),
+						resource.TestCheckResourceAttr("raito_datasource.test", "sync_method", string(raitoType.DataSourceSyncMethodOnPrem)),
+						resource.TestCheckResourceAttr("raito_datasource.test", "identity_stores.#", "0"),
+						resource.TestCheckNoResourceAttr("raito_datasource.test", "parent"),
+						resource.TestCheckResourceAttrWith("raito_datasource.test", "native_identity_store", func(value string) error {
+							if value == "" {
+								return errors.New("native_identity_store should not be empty")
+							}
+
+							return nil
+						}),
+						resource.TestCheckResourceAttr("raito_datasource.test", "owners.#", "1"),
+						resource.TestCheckResourceAttrPair("raito_datasource.test", "owners.0", "raito_user.test_user", "id"),
+					),
+				},
+				{
+					ResourceName:      "raito_datasource.test",
+					ImportState:       true,
+					ImportStateVerify: true,
+				},
+				{
+					Config: providerConfig + fmt.Sprintf(`
+resource "raito_user" "test_user" {
+  name       = "TestUser%[1]s"
+  email      = "test_user-%[1]s@raito.io"
+  raito_user = true
+  type       = "Machine"					
+}
+					
+resource "raito_user" "test_user_2" {
+  name       = "TestUser-2-%[1]s"
+  email      = "test_user-2-%[1]s@raito.io"
+  raito_user = true
+  type       = "Machine"					
+}
+					
+resource "raito_datasource" "test" {
+	name        = "tfTestDataSource-%[1]s"
+	description = "test description"
+	owners      = [ raito_user.test_user_2.id ]
+}
+`, testId),
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("raito_datasource.test", "name", "tfTestDataSource-"+testId),
+						resource.TestCheckResourceAttr("raito_datasource.test", "description", "test description"),
+						resource.TestCheckResourceAttr("raito_datasource.test", "sync_method", string(raitoType.DataSourceSyncMethodOnPrem)),
+						resource.TestCheckResourceAttr("raito_datasource.test", "identity_stores.#", "0"),
+						resource.TestCheckNoResourceAttr("raito_datasource.test", "parent"),
+						resource.TestCheckResourceAttrWith("raito_datasource.test", "native_identity_store", func(value string) error {
+							if value == "" {
+								return errors.New("native_identity_store should not be empty")
+							}
+
+							return nil
+						}),
+						resource.TestCheckResourceAttr("raito_datasource.test", "owners.#", "1"),
+						resource.TestCheckResourceAttrPair("raito_datasource.test", "owners.0", "raito_user.test_user_2", "id"),
+					),
+				},
+				// Resource are automatically deleted
+			},
+			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		})
+	})
 }

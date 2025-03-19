@@ -31,6 +31,7 @@ resource "raito_identitystore" "example" {
 
 - `description` (String) The description of the identity store
 - `master` (Boolean) `True`, if this is a master identity store. Default: `false`
+- `owners` (Set of String) The IDs of the owners of the identity store
 
 ### Read-Only
 

@@ -6,10 +6,9 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
-	"github.com/raito-io/sdk-go/types"
 )
 
-func TestAccDataSourceDataSource(t *testing.T) {
+func TestAccIdentityStoreDataSource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		IsUnitTest: false,
 		PreCheck: func() {
@@ -21,21 +20,21 @@ func TestAccDataSourceDataSource(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + `data "raito_datasource" "test" {
-    name = "Snowflake"
-}
-`,
+				Config: providerConfig + `data "raito_identity_store" "test" {
+				name = "Snowflake"
+				}`,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.raito_datasource.test", "name", "Snowflake"),
-					resource.TestCheckResourceAttrWith("data.raito_datasource.test", "id", func(value string) error {
+					resource.TestCheckResourceAttr("data.raito_identity_store.test", "name", "Snowflake"),
+					resource.TestCheckResourceAttrWith("data.raito_identity_store.test", "id", func(value string) error {
 						if value == "" {
 							return errors.New("ID is not set")
 						}
 
 						return nil
 					}),
-					resource.TestCheckResourceAttr("data.raito_datasource.test", "sync_method", string(types.DataSourceSyncMethodOnPrem)),
-					resource.TestCheckResourceAttrSet("data.raito_datasource.test", "owners.0"),
+					resource.TestCheckNoResourceAttr("data.raito_identity_store.test", "owners.0"),
+					resource.TestCheckResourceAttr("data.raito_identity_store.test", "master", "false"),
+					resource.TestCheckResourceAttr("data.raito_identity_store.test", "is_native", "true"),
 				),
 			},
 		},

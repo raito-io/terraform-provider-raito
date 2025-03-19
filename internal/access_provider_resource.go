@@ -33,8 +33,7 @@ import (
 )
 
 const (
-	ownerRole = "OwnerRole"
-	lockMsg   = "Locked by terraform"
+	lockMsg = "Locked by terraform"
 )
 
 type AccessProviderResourceModel struct {

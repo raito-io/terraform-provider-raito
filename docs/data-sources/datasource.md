@@ -31,5 +31,6 @@ data "raito_datasource" "example" {
 - `id` (String) The ID of the requested data source
 - `identity_stores` (Set of String) The IDs of the identity stores that also link to the data source
 - `native_identity_store` (String) The ID of the native identity store
+- `owners` (Set of String) The IDs of the owners of the data source
 - `parent` (String) The ID of the parent data source, if applicable
 - `sync_method` (String) The sync method of the data source. Should be set to `ON_PREM` for now.

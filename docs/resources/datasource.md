@@ -35,6 +35,7 @@ resource "raito_datasource" "example" {
 
 - `description` (String) The description of the data source
 - `identity_stores` (Set of String) The IDs of the linked identity stores
+- `owners` (Set of String) The IDs of the owners of the data source
 - `parent` (String) The ID of the parent data source, if applicable
 - `sync_method` (String) The sync method of the data source (should be `ON_PREM` for now)
 

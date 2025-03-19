@@ -22,6 +22,7 @@ type DataSourceDataSourceModel struct {
 	Parent              types.String `tfsdk:"parent"`
 	NativeIdentityStore types.String `tfsdk:"native_identity_store"`
 	IdentityStores      types.Set    `tfsdk:"identity_stores"`
+	Owners              types.Set    `tfsdk:"owners"`
 }
 
 type DataSourceDataSource struct {
@@ -97,6 +98,15 @@ func (d *DataSourceDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 				Description:         "The IDs of the identity stores that also link to the data source",
 				MarkdownDescription: "The IDs of the identity stores that also link to the data source",
 			},
+			"owners": schema.SetAttribute{
+				ElementType:         types.StringType,
+				Required:            false,
+				Optional:            false,
+				Computed:            true,
+				Sensitive:           false,
+				Description:         "The IDs of the owners of the data source",
+				MarkdownDescription: "The IDs of the owners of the data source",
+			},
 		},
 		Description:         "Find a data source based on the name",
 		MarkdownDescription: "Find a Raito [Data Source](https://docs.raito.io/docs/cloud/datasources) based on the name",
@@ -162,7 +172,18 @@ func (d *DataSourceDataSource) Read(ctx context.Context, request datasource.Read
 			data.NativeIdentityStore = types.StringPointerValue(nativeIs)
 			data.IdentityStores = isAttr
 
+			owners, diagn := getOwners(ctx, dsItem.Id, d.client)
+			response.Diagnostics.Append(diagn...)
+
+			if response.Diagnostics.HasError() {
+				return
+			}
+
+			data.Owners = owners
+
 			response.Diagnostics.Append(response.State.Set(ctx, data)...)
+
+			return
 		}
 	}
 }

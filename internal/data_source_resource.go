@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -33,6 +34,7 @@ type DataSourceResourceModel struct {
 	Parent              types.String `tfsdk:"parent"`
 	NativeIdentityStore types.String `tfsdk:"native_identity_store"`
 	IdentityStores      types.Set    `tfsdk:"identity_stores"`
+	Owners              types.Set    `tfsdk:"owners"`
 }
 
 func (m *DataSourceResourceModel) ToDataSourceInput() raitoType.DataSourceInput {
@@ -128,6 +130,15 @@ func (d *DataSourceResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				DeprecationMessage:  "",
 				Default:             setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
 			},
+			"owners": schema.SetAttribute{
+				ElementType:         types.StringType,
+				Required:            false,
+				Optional:            true,
+				Computed:            true,
+				Sensitive:           false,
+				Description:         "The IDs of the owners of the data source",
+				MarkdownDescription: "The IDs of the owners of the data source",
+			},
 		},
 		Description:         "The data source resource",
 		MarkdownDescription: "The resource for representing a Raito [Data Source](https://docs.raito.io/docs/cloud/datasources).",
@@ -212,6 +223,24 @@ func (d *DataSourceResource) Create(ctx context.Context, request resource.Create
 		}
 	}
 
+	// Set Owners
+	if !data.Owners.IsNull() && len(data.Owners.Elements()) > 0 {
+		response.Diagnostics.Append(d.setOwners(ctx, &data.Owners, dataSourceResult.Id)...)
+
+		if response.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	owners, diagn := getOwners(ctx, dataSourceResult.Id, d.client)
+	response.Diagnostics.Append(diagn...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	data.Owners = owners
+
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }
 
@@ -266,6 +295,10 @@ func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequ
 		parentId = &ds.Parent.Id
 	}
 
+	if response.Diagnostics.HasError() {
+		return
+	}
+
 	actualData := DataSourceResourceModel{
 		Id:                  types.StringValue(ds.Id),
 		Name:                types.StringValue(ds.Name),
@@ -275,6 +308,15 @@ func (d *DataSourceResource) Read(ctx context.Context, request resource.ReadRequ
 		NativeIdentityStore: types.StringPointerValue(nativeIs),
 		IdentityStores:      isAttr,
 	}
+
+	owners, diagn := getOwners(ctx, stateData.Id.ValueString(), d.client)
+	response.Diagnostics.Append(diagn...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	actualData.Owners = owners
 
 	response.Diagnostics.Append(response.State.Set(ctx, actualData)...)
 }
@@ -351,6 +393,24 @@ func (d *DataSourceResource) Update(ctx context.Context, request resource.Update
 		}
 	}
 
+	// Set Owners
+	if !data.Owners.IsNull() && len(data.Owners.Elements()) > 0 {
+		response.Diagnostics.Append(d.setOwners(ctx, &data.Owners, data.Id.ValueString())...)
+
+		if response.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	owners, diagn := getOwners(ctx, data.Id.ValueString(), d.client)
+	response.Diagnostics.Append(diagn...)
+
+	if response.Diagnostics.HasError() {
+		return
+	}
+
+	data.Owners = owners
+
 	response.Diagnostics.Append(response.State.Set(ctx, data)...)
 }
 
@@ -364,7 +424,21 @@ func (d *DataSourceResource) Delete(ctx context.Context, request resource.Delete
 		return
 	}
 
-	err := d.client.DataSource().DeleteDataSource(ctx, data.Id.ValueString())
+	currentUser, err := d.client.User().GetCurrentUser(ctx)
+	if err != nil {
+		response.Diagnostics.AddError("Failed to get current user", err.Error())
+
+		return
+	}
+
+	_, err = d.client.Role().UpdateRoleAssigneesOnDataSource(ctx, data.Id.ValueString(), ownerRole, currentUser.Id)
+	if err != nil {
+		response.Diagnostics.AddError("Failed to remove role assignees from data source", err.Error())
+
+		return
+	}
+
+	err = d.client.DataSource().DeleteDataSource(ctx, data.Id.ValueString())
 	if err != nil {
 		response.Diagnostics.AddError("Failed to delete data source", err.Error())
 
@@ -372,6 +446,22 @@ func (d *DataSourceResource) Delete(ctx context.Context, request resource.Delete
 	}
 
 	response.State.RemoveResource(ctx)
+}
+
+func (d *DataSourceResource) setOwners(ctx context.Context, ownerSet *types.Set, dsId string) (diagnostics diag.Diagnostics) {
+	ownersValues := ownerSet.Elements()
+	owners := make([]string, 0, len(ownersValues))
+
+	for _, owner := range ownersValues {
+		owners = append(owners, owner.(types.String).ValueString())
+	}
+
+	_, err := d.client.Role().UpdateRoleAssigneesOnDataSource(ctx, dsId, ownerRole, owners...)
+	if err != nil {
+		diagnostics.AddError("Failed to update role assignees on data source", err.Error())
+	}
+
+	return diagnostics
 }
 
 func (d *DataSourceResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

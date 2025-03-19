@@ -34,7 +34,7 @@ func NewIdentityStoreDataSource() datasource.DataSource {
 }
 
 func (i *IdentityStoreDataSource) Metadata(_ context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = request.ProviderTypeName + "_identity_store"
+	response.TypeName = request.ProviderTypeName + "_identitystore"
 }
 
 func (i *IdentityStoreDataSource) Schema(ctx context.Context, request datasource.SchemaRequest, response *datasource.SchemaResponse) {

@@ -177,7 +177,8 @@ func (g *GlobalRoleAssignmentResource) Read(ctx context.Context, request resourc
 	}
 
 	stateData.User = types.StringValue(ra.To.(*types2.RoleAssignmentToUser).Id)
-	stateData.Role = types.StringValue(ra.Role.Name)
+	raRoleId := ra.Role.Role.GetId()
+	stateData.Role = types.StringValue(strings.TrimSuffix(raRoleId, roleIdSuffix))
 
 	response.Diagnostics.Append(response.State.Set(ctx, stateData)...)
 }

@@ -115,7 +115,7 @@ resource "raito_global_role_assignment" "gra1" {
 }
 					
 resource "raito_global_role_assignment" "gra2" {
-	role = "Creator"
+	role = "AccessCreator"
 	user = raito_user.u1.id
 }
 					
@@ -132,16 +132,21 @@ resource "raito_global_role_assignment" "gra2" {
 							return nil
 						}),
 
-						resource.TestCheckResourceAttr("raito_global_role_assignment.gra2", "role", "Creator"),
+						resource.TestCheckResourceAttr("raito_global_role_assignment.gra2", "role", "AccessCreator"),
 						resource.TestCheckResourceAttrPair("raito_global_role_assignment.gra2", "user", "raito_user.u1", "id"),
 						resource.TestCheckResourceAttrWith("raito_global_role_assignment.gra2", "id", func(value string) error {
-							if !strings.HasPrefix(value, "Creator#") {
+							if !strings.HasPrefix(value, "AccessCreator#") {
 								return fmt.Errorf("expected id to start with Creator# but is %q", value)
 							}
 
 							return nil
 						}),
 					),
+				},
+				{
+					ResourceName:      "raito_global_role_assignment.gra1",
+					ImportState:       true,
+					ImportStateVerify: true,
 				},
 			},
 			ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

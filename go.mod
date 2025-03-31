@@ -2,6 +2,8 @@ module github.com/raito-io/terraform-provider-raito
 
 go 1.24.0
 
+toolchain go1.24.1
+
 tool (
 	github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
 	github.com/raito-io/enumer
@@ -16,7 +18,7 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.11.0
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/raito-io/golang-set v0.0.4
-	github.com/raito-io/sdk-go v0.0.14
+	github.com/raito-io/sdk-go v0.0.15
 )
 
 require (
@@ -29,14 +31,11 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
-	github.com/agnivade/levenshtein v1.2.1 // indirect
-	github.com/alexflint/go-arg v1.5.1 // indirect
-	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.36.3 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.29.9 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.62 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.29.10 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.63 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.34 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.34 // indirect
@@ -45,7 +44,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.15 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.29.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.29.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.17 // indirect
 	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/bgentry/speakeasy v0.2.0 // indirect
